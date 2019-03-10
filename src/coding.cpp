@@ -7,7 +7,7 @@
 #include "SD.h"
 #include "AccelStepper.h"
 #include "pumpdriver.h"
-#include "Servo.h"
+#include "Servo.h"  // Uses ServoESP32 library.  In platformIO: http://platformio.org/lib/show/1739/ServoESP32
 #include "pinconfig.h"
 #include "AccelStepper.h"
 #include <Preferences.h>
