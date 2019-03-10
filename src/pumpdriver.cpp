@@ -45,13 +45,11 @@ void runMotor(void *P){
       if(motor.distanceToGo() > 0){ // Move down
         while (digitalRead(Bot) && (motor.distanceToGo() != 0) && (trip == false)) {
           motor.run();
-          // esp_task_wdt_reset();
         }
       }
       else{
         while (digitalRead(Top) && (motor.distanceToGo() != 0) && (trip == false)) {
           motor.run();
-          // esp_task_wdt_reset();
         }
       }
       motorIsRunning = false;
