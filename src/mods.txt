@@ -11,7 +11,7 @@ Changed:
 * Removed stepper enable pin - pullup messed with bootup memory voltage setting.
 * Servo pin directly from ESP32.
 * Encoder runs from 3.3V rail.
-* Stepper driver runs from 3.3V rail, directly conencted to ESP32.
+* Stepper driver runs from 3.3V rail, directly connected to ESP32.
 * Added delay before reading hidden text - it seems that Nextion requires some time to update text after Home button clicked.
 * Added trip detection by comparing stepper pulses vs. encoder pulses. Everything should stop working when tripped.  Have to reboot to reset trip.
 * Settings now saved & loaded in flash - save functionality only available from Serial for now.
@@ -25,4 +25,3 @@ Notes
 * Should dispensing be blocked until pump has been through a priming cycle?
 * Re-prime if stroke length is changed?
 * Consider reading settings directly from page1 (using sendCommand).  Copying data from page1 to page0 seems like a poor hack.
-
