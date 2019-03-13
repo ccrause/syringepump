@@ -17,6 +17,7 @@
 #define __NEXOBJECT_H__
 #include <Arduino.h>
 #include "NexConfig.h"
+#include <string>
 /**
  * @addtogroup CoreAPI
  * @{
@@ -76,7 +77,7 @@ private: /* data */
     uint8_t __pid; /* Page ID */
     uint8_t __cid; /* Component ID */
     const char *__name; /* An unique name */
-    const char *__ref; /* An unique pageID+name reference */    
+    std::string __ref; /* An unique pageID+name reference */
 };
 /**
  * @}

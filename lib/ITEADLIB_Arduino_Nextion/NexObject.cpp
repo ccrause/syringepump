@@ -19,12 +19,15 @@ NexObject::NexObject(uint8_t pid, uint8_t cid, const char *name)
     this->__pid = pid;
     this->__cid = cid;
     this->__name = name;
-    String s;
-    s += "page";
-    s += pid;
-    s += ".";
-    s += this->__name;
-    this->__ref = s.c_str();
+    char s[20];
+    snprintf(s, 20, "page%d.%s", pid, name);
+    this->__ref = s;
+
+    // s += "page";
+    // s += pid;
+    // s += ".";
+    // s += this->__name;
+    // this->__ref = s.c_str();
 }
 
 uint8_t NexObject::getObjPid(void)
@@ -39,7 +42,7 @@ uint8_t NexObject::getObjCid(void)
 
 const char* NexObject::getObjName(void)
 {
-  return __ref;  // return object name in page.name format
+  return __ref.c_str();  // return object name in page.name format
     // return __name;
 }
 
@@ -61,4 +64,6 @@ void NexObject::printObjInfo(void)
         dbSerialPrint("(null)");
     }
     dbSerialPrintln("]");
+    dbSerialPrint("Full component reference: ");
+    dbSerialPrintln(__ref.c_str());
 }
