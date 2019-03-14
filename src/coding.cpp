@@ -208,9 +208,6 @@ void primeButtonPopCallBack(void *ptr){
     safeMoveTo(0);
     if(trip) return;  // do nothing if tripped
     if(debugPrint) Serial.println("Syringe empty");
-    progressBar0.setValue(100); //show slider value as zero
-    progressBar1.setValue(100); //Progress bar empty P1
-
     valve.write(in);  //actuate Servo to inlet side
     delay(250);       // give time for servo to move
     valvePosition0.setValue(0);  //update valve p0
@@ -220,8 +217,6 @@ void primeButtonPopCallBack(void *ptr){
     if(trip) return;  // do nothing if tripped
 
     if(debugPrint) Serial.println("Syringe Filled");
-    progressBar0.setValue(0); //show slider value as zero
-    progressBar1.setValue(0); //Progress bar empty P1
   }
   errMsg0.setText(" ");
   statusText.setText("Ready"); // nextion status
@@ -260,8 +255,6 @@ void emptyButtonPopCallBack(void *prt){
   if(debugPrint) Serial.println("valve to outlet");
   safeMoveTo(0);
   if(debugPrint) Serial.println("Syringe empty");
-  progressBar0.setValue(100);  //Progress bar empty P0
-  progressBar1.setValue(100); //Progress bar empty P1
 }
 
 // move the plunger up 5mm if possible
@@ -387,10 +380,6 @@ void dispense(){
     safeMoveTo(motor.currentPosition() - dispenseStroke);
     if(trip) return;
     displayDispenseVolume = false;
-
-    progressBar0.setValue(100); //show slider value as zero
-    progressBar1.setValue(100); //Progress bar empty P1
-
     valve.write(in);  //actuate Servo to inlet side
     delay(250);       // give time for servo to move
     valvePosition0.setValue(0);  //update valve p0
@@ -399,9 +388,6 @@ void dispense(){
     safeMoveTo(strokePosLimit);
     if(trip) return;
     displayDispenseProgress = false;
-
-    progressBar0.setValue(0); //show slider value as zero
-    progressBar1.setValue(0); //Progress bar empty P1
   }
   volumeText.setText("Ready");
 }
@@ -525,8 +511,6 @@ void setup(){
   //reset motor settings after position update
   motor.setMaxSpeed(speed * stPmm);
   motor.setAcceleration(speed * stPmm / 2);
-  // motor.setMaxSpeed(maxSpeed * stPmm);      // Set Max Speed of Stepper (Faster for regular movements)
-  // motor.setAcceleration(maxSpeed * stPmm/2);  // Set Acceleration of Stepper
 
   Serial.println("Setup done");
   errMsg0.setText("Please prime syringe"); //Top Line note spacing
