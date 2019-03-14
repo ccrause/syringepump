@@ -145,15 +145,18 @@ void safeMoveTo(long newpos){
   // Wait until move is finished
   while(motorIsRunning && (trip == false)){
     vTaskDelay(100 / portTICK_PERIOD_MS);
-    if(!busyZeroing && (nexSerial.availableForWrite() > 20) && displayDispenseProgress){
-      double progress = (100.0 * (float)(strokePosLimit - motor.currentPosition())) / dispenseStroke;
+    // Update progress bar with plunger movement
+    if(!busyZeroing && (nexSerial.availableForWrite() > 20)) {
+      double progress = (100.0 * (float)(strokePosLimit - motor.currentPosition())) / strokePosLimit;
       if(progress > 100){
         progress = 100;
       }
       progressBar0.setValue((uint32_t)progress);
 
+      // update Volume display
       if(displayDispenseVolume){
-         deltaVol = dispenseCycleVol * progress / 100.0;
+        progress = (100.0 * (float)(strokePosLimit - motor.currentPosition())) / dispenseStroke;
+        deltaVol = dispenseCycleVol * progress / 100.0;
         dtostrf(totalDispensedVol + deltaVol, 5, 3, buffer);
         volumeText.setText(buffer);
       }
