@@ -48,7 +48,6 @@ uint32_t speed;    // Actual speed in mm/sec
 bool busyZeroing = true;
 
 long strokePosLimit = defaultStroke * stPmm; // max stroke position in steps (default 100 mm)
-bool displayDispenseProgress = false;
 bool displayDispenseVolume = false;
 
 bool debugPrint = false;
@@ -152,6 +151,7 @@ void safeMoveTo(long newpos){
         progress = 100;
       }
       progressBar0.setValue((uint32_t)progress);
+      progressBar1.setValue((uint32_t)progress);
 
       // update Volume display
       if(displayDispenseVolume){
@@ -375,7 +375,6 @@ void dispense(){
     switchValveButton.setValue(1);  //update valve switch p1
     valvePosition1.setValue(1); //update valve p1
 
-    displayDispenseProgress = true;
     displayDispenseVolume = true;
     safeMoveTo(motor.currentPosition() - dispenseStroke);
     if(trip) return;
@@ -387,7 +386,7 @@ void dispense(){
     valvePosition1.setValue(0); //update valve p1
     safeMoveTo(strokePosLimit);
     if(trip) return;
-    displayDispenseProgress = false;
+    // displayDispenseProgress = false;
   }
   volumeText.setText("Ready");
 }
