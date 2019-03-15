@@ -46,8 +46,8 @@ OpState currentState = osUnInitialized;
 #define containState(state,b) ((int)(state & b) == (int)b)
 
 //--------------------------------------------Variables-----------------------------------------------
-uint16_t stroke;   // max travel distance mm
-uint16_t speedPct; // % maximum speed
+uint32_t stroke;   // max travel distance mm
+uint32_t speedPct; // % maximum speed
 float dispenseVol, dispenseCycleVol, totalDispensedVol; // requested volume mL
 byte dispenseCycles;  // number of dispense cycles to dispense total volume
 long dispenseStroke = 0;  // stroke per dispense cycle
@@ -78,11 +78,6 @@ NexDSButton valvePosition0 = NexDSButton(0, 4, "bt0"); // Actual Valve Position 
 NexText errMsg0 = NexText(0, 8, "t2"); //Error Display 28 Carracters max
 NexText statusText = NexText(0, 6, "t0"); //Status Text Ready, Running, Filling. Error
 NexText volumeText = NexText(0, 7, "t1"); //Current Syringe Volume
-//the following are not vissible but available on page0 will bw updated when changed
-NexText volumeHiddenText = NexText(0, 9, "t3"); //Set Volume
-NexText diameterHiddenText = NexText(0, 10, "t4"); //Syringe Diameter mm Float Not visable
-NexText strokeHiddenText = NexText(0, 11, "t5"); //Stroke Length mm Float Not visable
-NexText speedHiddenText = NexText(0, 12, "t6"); // % of max speed
 
 //Page 1 (Settings)
 NexText errMsg1 = NexText(1, 9, "t4"); // Errror Diplay 15 caracters max
@@ -92,6 +87,10 @@ NexButton downButton = NexButton(1, 3, "b3"); // Move Syringe Down
 NexButton homeButton = NexButton(1, 1, "b0"); // Home Page button update the values for the syringe by reading the vairious values
 NexDSButton valvePosition1 = NexDSButton(1, 4, "bt0"); // Actual Valve Position 0=In 1=Out
 NexProgressBar progressBar1 = NexProgressBar(1, 5, "j0"); //Syringe Slider 0=100% Full
+NexText volumeSettingText = NexText(1, 7, "t0"); //Set Volume
+NexText diameterText = NexText(1, 8, "t1"); //Syringe Diameter mm Float Not visable
+NexNumber strokeNumber = NexNumber(1, 11, "n1");
+NexNumber speedNumber = NexNumber(1, 10, "n0");
 
 //buffer to read values from Nextion
 char buffer[30] = {0};
@@ -298,7 +297,7 @@ void settingsButtonPopCallBack(void *ptr) {
 void getVolume(void) {
   Serial.println("Get volume from Nextion");
   memset(buffer, 0, sizeof(buffer));
-  if(!volumeHiddenText.getText(buffer, sizeof(buffer))){
+  if(!volumeSettingText.getText(buffer, sizeof(buffer))){
     Serial.println("Error reading volume.");
   }
   else{
@@ -310,7 +309,7 @@ void getVolume(void) {
 void getDiameter(void) {
   Serial.println("Get diameter from Nextion");
   memset(buffer, 0, sizeof(buffer));
-  if(!diameterHiddenText.getText(buffer, sizeof(buffer))){
+  if(!diameterText.getText(buffer, sizeof(buffer))){
     Serial.println("Error reading diameter.");
   }
   else{
@@ -321,24 +320,22 @@ void getDiameter(void) {
 
 void getStroke(void) {
   Serial.println("Get stroke from Nextion");
-  memset(buffer, 0, sizeof(buffer));
-  if(!strokeHiddenText.getText(buffer, sizeof(buffer))) {
+
+  if(!strokeNumber.getValue(&stroke)) {
     Serial.println("Error reading stroke.");
   }
   else{
-    stroke = atoi(buffer);
     if(debugPrint) Serial.printf("Stroke = %d\n", stroke);
   }
 }
 
-//-------------------------------------------------------------------------------------------
 void getSpeed(void) {
   Serial.println("Get speed% from Nextion");
-  if(!speedHiddenText.getText(buffer, sizeof(buffer))) {
+
+  if(!speedNumber.getValue(&speedPct)) {
     Serial.println("Error reading speed.");
   }
   else{
-    speedPct = atoi(buffer);
     if(debugPrint) Serial.printf("Speed = %d%%\n", speed);
   }
 }
