@@ -51,12 +51,8 @@ uint16_t speedPct; // % maximum speed
 float dispenseVol, dispenseCycleVol, totalDispensedVol; // requested volume mL
 byte dispenseCycles;  // number of dispense cycles to dispense total volume
 long dispenseStroke = 0;  // stroke per dispense cycle
-// float volume;
 float diameter;    // syringe diameter mm
 uint32_t speed;    // Actual speed in mm/sec
-
-// Don't update display with position info when this is true
-bool busyZeroing = true;
 
 long strokePosLimit = defaultStroke * stPmm; // max stroke position in steps (default 100 mm)
 bool displayDispenseVolume = false;
@@ -531,7 +527,6 @@ void setup(){
   motor.setMaxSpeed(maxSpeed*stPmm/4);      // Set Max Speed of Stepper (Slower to get better accuracy)
   motor.setAcceleration(maxSpeed*stPmm/8);  // Set Acceleration of Stepper
   safeMoveTo(-100 * stPmm);
-  busyZeroing = false;
 
   if(containState(currentState, osTripped)) return;  // do nothing if tripped
 
