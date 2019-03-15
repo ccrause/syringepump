@@ -365,6 +365,10 @@ void homeButtonPopCallBack(void *prt_){
 }
 
 void dispense(){
+  // start dispense cycle from bottom position
+  if (motor.currentPosition() != strokePosLimit) {
+    safeMoveTo(strokePosLimit);
+  }
   if(trip) return;  // do nothing if tripped
 
   totalDispensedVol = 0;
@@ -386,7 +390,6 @@ void dispense(){
     valvePosition1.setValue(0); //update valve p1
     safeMoveTo(strokePosLimit);
     if(trip) return;
-    // displayDispenseProgress = false;
   }
   volumeText.setText("Ready");
 }
