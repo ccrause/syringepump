@@ -367,6 +367,10 @@ void homeButtonPopCallBack(void *prt_){
 void dispense(){
   // start dispense cycle from bottom position
   if (motor.currentPosition() != strokePosLimit) {
+    // valve should be open to inlet
+    valvePosition0.setValue(0);  //update valve p0
+    switchValveButton.setValue(0);  //update valve switch p1
+    valvePosition1.setValue(0); //update valve p1
     safeMoveTo(strokePosLimit);
   }
   if(trip) return;  // do nothing if tripped
