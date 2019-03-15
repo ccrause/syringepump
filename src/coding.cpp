@@ -34,6 +34,17 @@ AccelStepper motor(1, stepPin, dirPin);
 #define configNameDiameter "diameter"
 #define nexDiameterTextUpdateStr "page1.t1.txt=\"%.2f\""
 
+enum OpState {osUnInitialized=0,  // default state
+              osZeroed=1,         // set after zeroing completed
+              osEmpty=2,          // set when empty action completed
+              osPrimed=4,         // set after prime cycle completed
+              osSettings=8,       // set when in settings screen
+              osTripped=128};     // set when motor is tripped
+OpState currentState = osUnInitialized;
+#define includeState(state,b) state = (OpState)(state | b)
+#define excludeState(state,b) state = (OpState)(state & ~b)
+#define containState(state,b) ((int)(state & b) == (int)b)
+
 //--------------------------------------------Variables-----------------------------------------------
 uint16_t stroke;   // max travel distance mm
 uint16_t speedPct; // % maximum speed
@@ -65,7 +76,7 @@ NexPage page1 = NexPage(1, 0, "page1"); // Settings Screen
 
 NexButton primeButton = NexButton(0, 1, "b0"); //Prime Syringe
 NexButton emptyButton = NexButton(0, 2, "b1"); // Empty Syringe
-//NexButton settingsButton = NexButton(0, 3, "b2"); //Page1 not used in mcu
+NexButton settingsButton = NexButton(0, 3, "b2"); //Page1 not used in mcu
 NexProgressBar progressBar0 = NexProgressBar(0, 5, "j0"); //Syringe Slider 0=100% Full
 NexDSButton valvePosition0 = NexDSButton(0, 4, "bt0"); // Actual Valve Position 0=IN 1=Out
 NexText errMsg0 = NexText(0, 8, "t2"); //Error Display 28 Carracters max
@@ -98,6 +109,7 @@ NexTouch *nex_listen_list[] =
   &emptyButton, //Empty Syringe
   &upButton, //Move up 5mm
   &downButton, //Move down 5mm
+  &settingsButton,
   NULL
 };
 
@@ -145,7 +157,7 @@ void safeMoveTo(long newpos){
   while(motorIsRunning && (trip == false)){
     vTaskDelay(100 / portTICK_PERIOD_MS);
     // Update progress bar with plunger movement
-    if(!busyZeroing && (nexSerial.availableForWrite() > 20)) {
+    if(containState(currentState, osZeroed) && (nexSerial.availableForWrite() > 20)) {
       double progress = (100.0 * (float)(strokePosLimit - motor.currentPosition())) / strokePosLimit;
       if(progress > 100){
         progress = 100;
@@ -166,6 +178,7 @@ void safeMoveTo(long newpos){
 
   // Error diagnostics
   if(trip == true){
+    includeState(currentState, osTripped); //currentState |= osTripped;
     const char * msg1 = "==TRIP==";
     const char * msg2 = "TRIP: please service & restart";
     Serial.println(msg2);
@@ -194,7 +207,11 @@ void safeMoveTo(long newpos){
 
 //Filling the syringe to remove air
 void primeButtonPopCallBack(void *ptr){
-  if(trip) return;  // do nothing if tripped
+  if(containState(currentState, osTripped) || containState(currentState, osSettings)) return;  // do nothing if tripped
+  if(!containState(currentState, osZeroed)) {
+    Serial.println("Cannot prime until ZEROED");
+    return;
+  }
   Serial.println("Priming started");
   errMsg0.setText("Please Wait");
   statusText.setText("Priming"); // nextion status
@@ -206,7 +223,7 @@ void primeButtonPopCallBack(void *ptr){
     switchValveButton.setValue(1);  //update valve switch p1
     valvePosition1.setValue(1); //update valve p1
     safeMoveTo(0);
-    if(trip) return;  // do nothing if tripped
+    if((currentState & osTripped) == osTripped) return;  // do nothing if tripped
     if(debugPrint) Serial.println("Syringe empty");
     valve.write(in);  //actuate Servo to inlet side
     delay(250);       // give time for servo to move
@@ -214,10 +231,12 @@ void primeButtonPopCallBack(void *ptr){
     switchValveButton.setValue(0);  //update valve switch p1
     valvePosition1.setValue(0); //update valve p1
     safeMoveTo(strokePosLimit);
-    if(trip) return;  // do nothing if tripped
+    if((currentState & osTripped) == osTripped) return;  // do nothing if tripped
 
     if(debugPrint) Serial.println("Syringe Filled");
   }
+  excludeState(currentState, osEmpty); // currentState = (OpState)(currentState & ~osEmpty);
+  includeState(currentState, osPrimed); // currentState |= (OpState)osPrimed;
   errMsg0.setText(" ");
   statusText.setText("Ready"); // nextion status
   Serial.println("Priming finished");
@@ -225,18 +244,16 @@ void primeButtonPopCallBack(void *ptr){
 
 //actuate the three way valve invert the current position
 void switchValveButtonPopCallBack(void *prt){
-  if(trip) return;  // do nothing if tripped
+  if(containState(currentState, osTripped)) return; //if((currentState & osTripped) == osTripped) return;  // do nothing if tripped
   uint32_t dual_state;
   switchValveButton.getValue(&dual_state);
-  if (!dual_state)
-  {
+  if (!dual_state) {
     valve.write(in);  //actuate Valve
     valvePosition0.setValue(0);  //update valve p0
     valvePosition1.setValue(0); //update valve p1
     Serial.println("valve to inlet");
   }
-  else
-  {
+  else {
     valve.write(out); //actuate Valve
     valvePosition0.setValue(1);  //update valve p0
     valvePosition1.setValue(1); //update valve p1
@@ -246,7 +263,7 @@ void switchValveButtonPopCallBack(void *prt){
 
 // empty the syringe by moving plunger up to zero volume
 void emptyButtonPopCallBack(void *prt){
-  if(trip) return;  // do nothing if tripped
+  if(containState(currentState, osTripped) || containState(currentState, osSettings)) return;  // do nothing if tripped
   Serial.println("Empty syringe");
   valve.write(out); //actuate Valve
   valvePosition0.setValue(1);  //update valve p0
@@ -255,11 +272,12 @@ void emptyButtonPopCallBack(void *prt){
   if(debugPrint) Serial.println("valve to outlet");
   safeMoveTo(0);
   if(debugPrint) Serial.println("Syringe empty");
+  includeState(currentState, osEmpty); // currentState |= osEmpty;
 }
 
 // move the plunger up 5mm if possible
 void upButtonPopCallBack(void *prt){
-  if(trip) return;  // do nothing if tripped
+  if(containState(currentState, osTripped)) return;  // do nothing if tripped
   safeMoveTo(motor.currentPosition() - 5*stPmm);
   if (digitalRead(Top))
     Serial.println("Up 5mm");
@@ -269,7 +287,7 @@ void upButtonPopCallBack(void *prt){
 
 // move the plunger down 5mm if posible
 void downButtonPopCallBack(void *prt){
-  if(trip) return;  // do nothing if tripped
+  if(containState(currentState, osTripped)) return;  // do nothing if tripped
   safeMoveTo(motor.currentPosition() + 5*stPmm);
   if (digitalRead(Bot))
     Serial.println("Down 5mm");
@@ -277,7 +295,10 @@ void downButtonPopCallBack(void *prt){
     Serial.println("Hit bottom stop!!!");
 }
 
-//-------------------------------------------------------------------------------------------
+void settingsButtonPopCallBack(void *ptr) {
+  includeState(currentState, osSettings);
+}
+
 void getVolume(void) {
   Serial.println("Get volume from Nextion");
   memset(buffer, 0, sizeof(buffer));
@@ -290,7 +311,6 @@ void getVolume(void) {
   }
 }
 
-//-------------------------------------------------------------------------------------------
 void getDiameter(void) {
   Serial.println("Get diameter from Nextion");
   memset(buffer, 0, sizeof(buffer));
@@ -303,7 +323,6 @@ void getDiameter(void) {
   }
 }
 
-//-------------------------------------------------------------------------------------------
 void getStroke(void) {
   Serial.println("Get stroke from Nextion");
   memset(buffer, 0, sizeof(buffer));
@@ -357,6 +376,7 @@ void updateDosingParams(){
 void homeButtonPopCallBack(void *prt_){
   // update syringe diameter, stroke lenght and speed by reading the value's from nextion hmi
   delay(100); // hack to try and read stroke text, perhaps nextion is slow to copy & convert text from page1 to page0?
+  excludeState(currentState, osSettings);
   getStroke();
   getSpeed();
   getDiameter();
@@ -365,6 +385,11 @@ void homeButtonPopCallBack(void *prt_){
 }
 
 void dispense(){
+  if(containState(currentState, osTripped) || containState(currentState, osSettings)) return;  // do nothing if tripped
+  if(!containState(currentState, osPrimed)) {
+    Serial.println("Cannot dispense until PRIMED");
+    return;
+  }
   // start dispense cycle from bottom position
   if (motor.currentPosition() != strokePosLimit) {
     // valve should be open to inlet
@@ -373,7 +398,7 @@ void dispense(){
     valvePosition1.setValue(0); //update valve p1
     safeMoveTo(strokePosLimit);
   }
-  if(trip) return;  // do nothing if tripped
+  if(containState(currentState, osTripped)) return;  // do nothing if tripped
 
   totalDispensedVol = 0;
   for(byte i=0; i<dispenseCycles; i++){
@@ -385,7 +410,7 @@ void dispense(){
 
     displayDispenseVolume = true;
     safeMoveTo(motor.currentPosition() - dispenseStroke);
-    if(trip) return;
+    if(containState(currentState, osTripped)) return;  // do nothing if tripped
     displayDispenseVolume = false;
     valve.write(in);  //actuate Servo to inlet side
     delay(250);       // give time for servo to move
@@ -393,7 +418,7 @@ void dispense(){
     switchValveButton.setValue(0);  //update valve switch p1
     valvePosition1.setValue(0); //update valve p1
     safeMoveTo(strokePosLimit);
-    if(trip) return;
+    if(containState(currentState, osTripped)) return;  // do nothing if tripped
   }
   volumeText.setText("Ready");
 }
@@ -493,6 +518,7 @@ void setup(){
   emptyButton.attachPop(emptyButtonPopCallBack, &emptyButton);
   upButton.attachPop(upButtonPopCallBack, &upButton);
   downButton.attachPop(downButtonPopCallBack, &downButton);
+  settingsButton.attachPop(settingsButtonPopCallBack, &settingsButton);
 
   errMsg0.setText("Please Wait   Setting Up"); //Top Line note spacing
   errMsg1.setText("Please Wait"); //P1 top line
@@ -507,7 +533,7 @@ void setup(){
   safeMoveTo(-100 * stPmm);
   busyZeroing = false;
 
-  if(trip) return;  // skip rest of setup if tripped
+  if(containState(currentState, osTripped)) return;  // do nothing if tripped
 
   motor.setCurrentPosition(0);  // Set the current position as zero
   progressBar0.setValue(100); //show slider value as zero
@@ -524,6 +550,7 @@ void setup(){
   statusText.setText("Not Ready"); //Status
   volumeText.setText("-----");// enable touch events of all components on screen
 
+  includeState(currentState, osZeroed);
   sendCommand("tsw 255,1"); // enable all touch events
 }
 
@@ -531,7 +558,7 @@ byte prevDosingButtonState = 1; // starting state = on
 byte dosingButtonState;
 
 void loop() {
-  if(trip == false){
+  if(!containState(currentState, osTripped)) {;  // do nothing if tripped
     nexLoop(nex_listen_list);
 
     // First read button state
