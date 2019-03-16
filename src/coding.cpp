@@ -59,6 +59,7 @@ bool debugPrint = false;
 Servo valve;
 const int in = 0; // servo angle for inlet aliagnment
 const int out = 140; // servo angle for outlet aliagnment
+enum valvePosition {vpInlet=0, vpOutlet};
 
 //-------------------------------------------------NEXTION---------------------------------------------
 NexPage page0 = NexPage(0, 0, "page0"); // Home Screen
@@ -92,8 +93,7 @@ NexNumber speedNumber = NexNumber(1, 10, "n0");
 char buffer[30] = {0};
 
 // Buttons that have a executable action assigned to them
-NexTouch *nex_listen_list[] =
-{
+NexTouch *nex_listen_list[] = {
   &primeButton, // Prime
   &homeButton,// Update Diameter, Stroke and Speed
   &switchValveButton, // Change Valve position
@@ -198,6 +198,22 @@ void safeMoveTo(long newpos){
   }
 }
 
+void switchValve(valvePosition pos) {
+  if(pos == vpInlet){
+    valve.write(in);  //actuate Servo to inlet side
+    valvePosition0.setValue(0);  //update valve p0
+    valvePosition1.setValue(0); //update valve p1
+    switchValveButton.setValue(0);  //update valve switch p1
+  }
+  else if (pos == vpOutlet) {
+    valve.write(out);  //actuate Servo to inlet side
+    valvePosition0.setValue(1);  //update valve p0
+    valvePosition1.setValue(1); //update valve p1
+    switchValveButton.setValue(1);  //update valve switch p1
+  }
+  else if(debugPrint) Serial.printf("Invalid parametr passed to switchValve: %d", pos);
+}
+
 //Filling the syringe to remove air
 void primeButtonPopCallBack(void *ptr){
   if(containState(currentState, osTripped) || containState(currentState, osSettings)) return;  // do nothing if tripped
@@ -210,22 +226,16 @@ void primeButtonPopCallBack(void *ptr){
   statusText.setText("Priming"); // nextion status
   totalDispensedVol = 0;
   for (byte i = 0; i < (primeCycles); i++){
-    valve.write(out);  //actuate Servo dump current product
+    switchValve(vpOutlet);
     delay(250);       // give time for servo to move
-    valvePosition0.setValue(1);  //update valve p0
-    switchValveButton.setValue(1);  //update valve switch p1
-    valvePosition1.setValue(1); //update valve p1
     safeMoveTo(0);
     if((currentState & osTripped) == osTripped) return;  // do nothing if tripped
     if(debugPrint) Serial.println("Syringe empty");
-    valve.write(in);  //actuate Servo to inlet side
+
+    switchValve(vpInlet);
     delay(250);       // give time for servo to move
-    valvePosition0.setValue(0);  //update valve p0
-    switchValveButton.setValue(0);  //update valve switch p1
-    valvePosition1.setValue(0); //update valve p1
     safeMoveTo(strokePosLimit);
     if((currentState & osTripped) == osTripped) return;  // do nothing if tripped
-
     if(debugPrint) Serial.println("Syringe Filled");
   }
   excludeState(currentState, osEmpty); // currentState = (OpState)(currentState & ~osEmpty);
@@ -241,15 +251,11 @@ void switchValveButtonPopCallBack(void *prt){
   uint32_t dual_state;
   switchValveButton.getValue(&dual_state);
   if (!dual_state) {
-    valve.write(in);  //actuate Valve
-    valvePosition0.setValue(0);  //update valve p0
-    valvePosition1.setValue(0); //update valve p1
+    switchValve(vpInlet);
     Serial.println("valve to inlet");
   }
   else {
-    valve.write(out); //actuate Valve
-    valvePosition0.setValue(1);  //update valve p0
-    valvePosition1.setValue(1); //update valve p1
+    switchValve(vpOutlet);
     Serial.println("valve to outlet");
   }
 }
@@ -258,10 +264,8 @@ void switchValveButtonPopCallBack(void *prt){
 void emptyButtonPopCallBack(void *prt){
   if(containState(currentState, osTripped) || containState(currentState, osSettings)) return;  // do nothing if tripped
   Serial.println("Empty syringe");
-  valve.write(out); //actuate Valve
-  valvePosition0.setValue(1);  //update valve p0
-  valvePosition1.setValue(1); //update valve p1
-  switchValveButton.setValue(1); //Switch Valve button
+  switchValve(vpOutlet);
+  delay(250);
   if(debugPrint) Serial.println("valve to outlet");
   safeMoveTo(0);
   if(debugPrint) Serial.println("Syringe empty");
@@ -429,30 +433,23 @@ void dispense(){
   // start dispense cycle from bottom position
   if (motor.currentPosition() != strokePosLimit) {
     // valve should be open to inlet
-    valvePosition0.setValue(0);  //update valve p0
-    switchValveButton.setValue(0);  //update valve switch p1
-    valvePosition1.setValue(0); //update valve p1
+    switchValve(vpInlet);
+    delay(250);
     safeMoveTo(strokePosLimit);
   }
   if(containState(currentState, osTripped)) return;  // do nothing if tripped
 
   totalDispensedVol = 0;
   for(byte i=0; i<dispenseCycles; i++){
-    valve.write(out);  //actuate Servo dump current product
-    delay(250);       // give time for servo to move
-    valvePosition0.setValue(1);  //update valve p0
-    switchValveButton.setValue(1);  //update valve switch p1
-    valvePosition1.setValue(1); //update valve p1
-
+    switchValve(vpOutlet);
     displayDispenseVolume = true;
+    delay(250);       // give time for servo to move
     safeMoveTo(motor.currentPosition() - dispenseStroke);
     if(containState(currentState, osTripped)) return;  // do nothing if tripped
+
     displayDispenseVolume = false;
-    valve.write(in);  //actuate Servo to inlet side
+    switchValve(vpInlet);
     delay(250);       // give time for servo to move
-    valvePosition0.setValue(0);  //update valve p0
-    switchValveButton.setValue(0);  //update valve switch p1
-    valvePosition1.setValue(0); //update valve p1
     safeMoveTo(strokePosLimit);
     if(containState(currentState, osTripped)) return;  // do nothing if tripped
   }
@@ -504,8 +501,6 @@ void setup(){
     Serial.printf("Top end: %d\n", digitalRead(Top));
   }
 
-  valve.attach(servo); //enable servo
-  valve.write(out);  //valve to inlet side
   motor.setPinsInverted (false, false, false);
   pinMode(ms1, OUTPUT); //micro step
   pinMode(ms2, OUTPUT); //micro step
@@ -518,6 +513,10 @@ void setup(){
   digitalWrite (ms3, HIGH);
   digitalWrite (enable, LOW); //enable stepper
   delay(1);
+
+  valve.attach(servo); //enable servo
+  switchValve(vpInlet);
+  delay(250);
 
   //register the pop events
   primeButton.attachPop(primeButtonPopCallBack, &primeButton);
@@ -539,7 +538,6 @@ void setup(){
   motor.setMaxSpeed(maxSpeed*stPmm/4);      // Set Max Speed of Stepper (Slower to get better accuracy)
   motor.setAcceleration(maxSpeed*stPmm/8);  // Set Acceleration of Stepper
   safeMoveTo(-100 * stPmm);
-
   if(containState(currentState, osTripped)) return;  // do nothing if tripped
 
   motor.setCurrentPosition(0);  // Set the current position as zero
@@ -581,8 +579,8 @@ void loop() {
     if(Serial.available()){
       char c = Serial.read();
       if(c == '?' || c == 'h'){
-        Serial.println("0 : close servo valve");
-        Serial.println("1 : open servo valve");
+        Serial.println("0 : valve to inlet");
+        Serial.println("1 : valve to outlet");
         Serial.println("p : prime");
         Serial.println("+ : move 5 mm up");
         Serial.println("- : move 5 mm down");
@@ -592,11 +590,11 @@ void loop() {
         Serial.println("B : enable debug printing");
       }
       else if(c == '0'){
-        valve.write(in);
+        switchValve(vpInlet);
         Serial.println("Valve to inlet");
       }
       else if(c == '1'){
-        valve.write(out);
+        switchValve(vpOutlet);
         Serial.println("Valve to outlet");
       }
       else if(c == 'p'){
