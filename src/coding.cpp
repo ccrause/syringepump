@@ -53,7 +53,7 @@ uint32_t speed;    // Actual speed in mm/sec
 long strokePosLimit = defaultStroke * stPmm; // max stroke position in steps (default 100 mm)
 bool displayDispenseVolume = false;
 
-bool debugPrint = false;
+bool debugPrint = true;
 
 // -------------------------------------------Servo----------------------------------------------------
 Servo valve;
@@ -152,6 +152,9 @@ void safeMoveTo(long newpos){
       double progress = (100.0 * (float)(strokePosLimit - motor.currentPosition())) / strokePosLimit;
       if(progress > 100){
         progress = 100;
+      }
+      else if(progress < 0){
+        progress = 0;
       }
       progressBar0.setValue((uint32_t)progress);
       progressBar1.setValue((uint32_t)progress);
