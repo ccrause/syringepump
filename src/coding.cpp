@@ -26,13 +26,9 @@ AccelStepper motor(1, stepPin, dirPin);
 #define primeCycles 2 //number of times the syringe cycles
 #define configNamespace "pumpSettings"
 #define configNameStroke "stroke"
-#define nexStrokeTextUpdateStr "page1.n1.val=%u"
 #define configNameSpeed "speed"
-#define nexSpeedPctTextUpdateStr "page1.n0.val=%u"
 #define configNameVolume "volume"
-#define nexDispenseVolTextUpdateStr "page1.t0.txt=\"%.3f\""
 #define configNameDiameter "diameter"
-#define nexDiameterTextUpdateStr "page1.t1.txt=\"%.2f\""
 
 enum OpState {osUnInitialized=0,  // default state
               osZeroed=1,         // set after zeroing completed
@@ -454,15 +450,12 @@ void loadConfig(){
   updateDosingParams();
 
   // Update display
-  // Write directly to page1 components
-  sprintf(buffer, nexStrokeTextUpdateStr, stroke);
-  sendCommand(buffer);
-  sprintf(buffer, nexSpeedPctTextUpdateStr, speedPct);
-  sendCommand(buffer);
-  sprintf(buffer, nexDispenseVolTextUpdateStr, dispenseVol);
-  sendCommand(buffer);
-  sprintf(buffer, nexDiameterTextUpdateStr, diameter);
-  sendCommand(buffer);
+  strokeNumber.setValue(speedPct);
+  speedNumber.setValue(speedPct);
+  sprintf(buffer, "%.3f", dispenseVol);
+  volumeSettingText.setText(buffer);
+  sprintf(buffer, "%.3f", diameter);
+  diameterText.setText(buffer);
 }
 
 void setup(){
