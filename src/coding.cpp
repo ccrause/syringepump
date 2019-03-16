@@ -53,7 +53,7 @@ uint32_t speed;    // Actual speed in mm/sec
 long strokePosLimit = defaultStroke * stPmm; // max stroke position in steps (default 100 mm)
 bool displayDispenseVolume = false;
 
-bool debugPrint = true;
+bool debugPrint = false;
 
 // -------------------------------------------Servo----------------------------------------------------
 Servo valve;
@@ -107,7 +107,6 @@ NexTouch *nex_listen_list[] =
 // Read/write config parameters
 Preferences configStorage;
 
-void getVolume();
 void updateDosingParams();
 
 void nexTripAlert(){
@@ -293,49 +292,59 @@ void settingsButtonPopCallBack(void *ptr) {
   includeState(currentState, osSettings);
 }
 
-void getVolume(void) {
-  Serial.println("Get volume from Nextion");
+float getVolume(void) {
+  if(debugPrint) Serial.println("Get volume from Nextion");
   memset(buffer, 0, sizeof(buffer));
   if(!volumeSettingText.getText(buffer, sizeof(buffer))){
     Serial.println("Error reading volume.");
+    return 0;
   }
   else{
-    dispenseVol = atof(buffer);
-    if(debugPrint) Serial.printf("Volume = %f\n", dispenseVol);
+    float temp = atof(buffer);
+    if(debugPrint) Serial.printf("Volume = %f\n", temp);
+    return temp;
   }
 }
 
-void getDiameter(void) {
-  Serial.println("Get diameter from Nextion");
+float getDiameter(void) {
+  if(debugPrint) Serial.println("Get diameter from Nextion");
   memset(buffer, 0, sizeof(buffer));
   if(!diameterText.getText(buffer, sizeof(buffer))){
     Serial.println("Error reading diameter.");
+    return 0;
   }
   else{
-    diameter = atof(buffer);
-    if(debugPrint) Serial.printf("Diameter = %f\n", diameter);
+    float temp = atof(buffer);
+    if(debugPrint) Serial.printf("Diameter = %f\n", temp);
+    return temp;
   }
 }
 
-void getStroke(void) {
-  Serial.println("Get stroke from Nextion");
+uint32_t getStroke(void) {
+  if(debugPrint) Serial.println("Get stroke from Nextion");
 
-  if(!strokeNumber.getValue(&stroke)) {
+  uint32_t temp = 0;
+  if(!strokeNumber.getValue(&temp)) {
     Serial.println("Error reading stroke.");
+    return 0;
   }
   else{
-    if(debugPrint) Serial.printf("Stroke = %d\n", stroke);
+    if(debugPrint) Serial.printf("Stroke = %d\n", temp);
+    return temp;
   }
 }
 
-void getSpeed(void) {
-  Serial.println("Get speed% from Nextion");
+uint32_t getSpeed(void) {
+  if(debugPrint) Serial.println("Get speed% from Nextion");
 
-  if(!speedNumber.getValue(&speedPct)) {
+  uint32_t temp = 0;
+  if(!speedNumber.getValue(&temp)) {
     Serial.println("Error reading speed.");
+    return 0;
   }
   else{
-    if(debugPrint) Serial.printf("Speed = %d%%\n", speed);
+    if(debugPrint) Serial.printf("Speed = %d%%\n", temp);
+    return temp;
   }
 }
 
@@ -369,10 +378,45 @@ void homeButtonPopCallBack(void *prt_){
   // update syringe diameter, stroke lenght and speed by reading the value's from nextion hmi
   delay(100); // hack to try and read stroke text, perhaps nextion is slow to copy & convert text from page1 to page0?
   excludeState(currentState, osSettings);
-  getStroke();
-  getSpeed();
-  getDiameter();
-  getVolume();
+  uint32_t tmpStroke = getStroke();
+  uint32_t tmpSpeed = getSpeed();
+  float tmpDiameter = getDiameter();
+  float tmpVol = getVolume();
+
+  if(configStorage.begin(configNamespace, false)){  // RW mode
+    if(debugPrint) Serial.println("Saving config");
+
+    if(tmpStroke != stroke) {
+      stroke = tmpStroke;
+      if(configStorage.putUShort(configNameStroke, stroke) == 0){
+        Serial.println("Error saving stroke");
+      }
+    }
+
+    if(tmpSpeed != speedPct) {
+      speedPct = tmpSpeed;
+      if(configStorage.putUShort(configNameSpeed, speedPct) == 0){
+        Serial.println("Error saving speed");
+      }
+    }
+
+    if(tmpVol != dispenseVol) {
+      dispenseVol = tmpVol;
+      if(configStorage.putFloat(configNameVolume, dispenseVol) == 0){
+        Serial.println("Error saving volume");
+      }
+    }
+
+    if(tmpDiameter != diameter) {
+      if(configStorage.putFloat(configNameDiameter, diameter) == 0){
+        Serial.println("Error saving diameter");
+      }
+    }
+    configStorage.end();
+  }
+  else{
+    Serial.println("Error opening config for saving");
+  }
   updateDosingParams();
 }
 
@@ -415,31 +459,6 @@ void dispense(){
   volumeText.setText("Ready");
 }
 
-// Writes config data to non-volatile storage
-// TODO: check if new data is different from stored data to reduce flash wear
-// Workaround - only save config over Serial
-void saveConfig(){
-  if(configStorage.begin(configNamespace, false)){  // RW mode
-    Serial.println("Saving config");
-    if(configStorage.putUShort(configNameStroke, stroke) == 0){
-      Serial.println("Error saving stroke");
-    }
-    if(configStorage.putUShort(configNameSpeed, speedPct) == 0){
-      Serial.println("Error saving speed");
-    }
-    if(configStorage.putFloat(configNameVolume, dispenseVol) == 0){
-      Serial.println("Error saving volume");
-    }
-    if(configStorage.putFloat(configNameDiameter, diameter) == 0){
-      Serial.println("Error saving diameter");
-    }
-    configStorage.end();
-  }
-  else{
-    Serial.println("Error opening config for saving");
-  }
-}
-
 // Reads config data from non-volatile storage
 void loadConfig(){
   if(!configStorage.begin(configNamespace, true)){  // Read-only mode
@@ -453,7 +472,7 @@ void loadConfig(){
   updateDosingParams();
 
   // Update display
-  strokeNumber.setValue(speedPct);
+  strokeNumber.setValue(stroke);
   speedNumber.setValue(speedPct);
   sprintf(buffer, "%.3f", dispenseVol);
   volumeSettingText.setText(buffer);
@@ -563,7 +582,6 @@ void loop() {
         Serial.println("- : move 5 mm down");
         Serial.println("e : empty");
         Serial.println("d : dispense");
-        Serial.println("s : Save current config");
         Serial.println("b : disable debug printing");
         Serial.println("B : enable debug printing");
       }
@@ -590,9 +608,6 @@ void loop() {
       }
       else if(c == 'e'){
         emptyButtonPopCallBack(0);
-      }
-      else if(c == 's'){
-        saveConfig();
       }
       else if(c == 'b'){
         debugPrint = false;
