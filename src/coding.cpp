@@ -559,6 +559,12 @@ void setup(){
 
   includeState(currentState, osZeroed);
   sendCommand("tsw 255,1"); // enable all touch events
+  if(debugPrint) {
+    Serial.println("Debug messages on");
+  }
+  else {
+    Serial.println("Debug messages off");
+  }
 }
 
 byte prevDosingButtonState = 1; // starting state = on
@@ -611,9 +617,11 @@ void loop() {
       }
       else if(c == 'b'){
         debugPrint = false;
+        Serial.println("Debug messages off");
       }
       else if(c == 'B'){
         debugPrint = true;
+        Serial.println("Debug messages on");
       }
     }
 
