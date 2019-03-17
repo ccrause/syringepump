@@ -257,6 +257,8 @@ void primeButtonPopCallBack(void *ptr){
   errMsg0.setText(" ");
   statusText.setText("Ready");
   Serial.println("Priming finished");
+  // Empty Serial input buffer
+  while(Serial.available()) Serial.read();
 }
 
 //actuate the three way valve invert the current position
@@ -463,6 +465,7 @@ void dispense(){
     return;
   }
   includeState(osBusy);
+  sendCommand("tsw 255, 0");  // disable touch events on screen
   // start dispense cycle from bottom position
   if (motor.currentPosition() != strokePosLimit) {
     // valve should be open to inlet
@@ -488,6 +491,9 @@ void dispense(){
   }
   volumeText.setText("Ready");
   excludeState(osBusy);
+  sendCommand("tsw 255, 1");  // enable touch events on screen
+  // Empty Serial input buffer
+  while(Serial.available()) Serial.read();
 }
 
 // Reads config data from non-volatile storage
@@ -604,72 +610,71 @@ byte prevDosingButtonState = 1; // starting state = on
 byte dosingButtonState;
 
 void loop() {
-  //if(!containState(osTripped))
-  {  // Scan for actions if not tripped
-    nexLoop(nex_listen_list);
+  nexLoop(nex_listen_list);
 
-    // First read button state
-    dosingButtonState = digitalRead(doseButton);
+  // First read button state
+  dosingButtonState = digitalRead(doseButton);
 
-    // Then check serial for commands
-    if(Serial.available()){
-      char c = Serial.read();
-      if(containState(osBusy))
-        Serial.printf("Busy, ignoring command %c\n", c);
-      if(c == '?' || c == 'h'){
-        Serial.println("0 : valve to inlet");
-        Serial.println("1 : valve to outlet");
-        Serial.println("p : prime");
-        Serial.println("+ : move 5 mm up");
-        Serial.println("- : move 5 mm down");
-        Serial.println("e : empty");
-        Serial.println("d : dispense");
-        Serial.println("b : disable debug printing");
-        Serial.println("B : enable debug printing");
-      }
-      else if(c == '0'){
-        switchValve(vpInlet);
-        Serial.println("Valve to inlet");
-      }
-      else if(c == '1'){
-        switchValve(vpOutlet);
-        Serial.println("Valve to outlet");
-      }
-      else if(c == 'p'){
-        primeButtonPopCallBack(0);
-      }
-      else if(c == '+'){
-        upButtonPopCallBack(0);
-      }
-      else if(c == '-'){
-        downButtonPopCallBack(0);
-      }
-      else if(c == 'd'){
-        // simulate a button press
-        dosingButtonState = 0;
-      }
-      else if(c == 'e'){
-        emptyButtonPopCallBack(0);
-      }
-      else if(c == 'b'){
-        debugPrint = false;
-        Serial.println("Debug messages off");
-      }
-      else if(c == 'B'){
-        debugPrint = true;
-        Serial.println("Debug messages on");
-      }
+  // Then check serial for commands
+  if(Serial.available()){
+    char c = Serial.read();
+    if(containState(osBusy)) {
+      Serial.printf("Busy, ignoring command %c\n", c);
     }
-
-    // Check dosing button only if it was previously not pressed
-    if((dosingButtonState == 0) && (prevDosingButtonState != 0)){
-      prevDosingButtonState = 0;
-      Serial.println("Dispensing...");
-      dispense();
+    else if(c == '?' || c == 'h'){
+      Serial.println("0 : valve to inlet");
+      Serial.println("1 : valve to outlet");
+      Serial.println("p : prime");
+      Serial.println("+ : move 5 mm up");
+      Serial.println("- : move 5 mm down");
+      Serial.println("e : empty");
+      Serial.println("d : dispense");
+      Serial.println("b : disable debug printing");
+      Serial.println("B : enable debug printing");
     }
-    else if((dosingButtonState == 1) && (prevDosingButtonState == 0)) {
-      prevDosingButtonState = 1;
-      if(debugPrint) Serial.println("Dispense button released");
+    else if(c == '0'){
+      switchValve(vpInlet);
+      Serial.println("Valve to inlet");
+    }
+    else if(c == '1'){
+      switchValve(vpOutlet);
+      Serial.println("Valve to outlet");
+    }
+    else if(c == 'p'){
+      primeButtonPopCallBack(0);
+    }
+    else if(c == '+'){
+      upButtonPopCallBack(0);
+    }
+    else if(c == '-'){
+      downButtonPopCallBack(0);
+    }
+    else if(c == 'd'){
+      // simulate a button press
+      dosingButtonState = 0;
+    }
+    else if(c == 'e'){
+      emptyButtonPopCallBack(0);
+    }
+    else if(c == 'b'){
+      debugPrint = false;
+      Serial.println("Debug messages off");
+    }
+    else if(c == 'B'){
+      debugPrint = true;
+      Serial.println("Debug messages on");
     }
   }
+
+  // Check dosing button only if it was previously not pressed
+  if((dosingButtonState == 0) && (prevDosingButtonState != 0)){
+    prevDosingButtonState = 0;
+    Serial.println("Dispensing...");
+    dispense();
+  }
+  else if((dosingButtonState == 1) && (prevDosingButtonState == 0)) {
+    prevDosingButtonState = 1;
+    if(debugPrint) Serial.println("Dispense button released");
+  }
+
 }
