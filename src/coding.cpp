@@ -199,6 +199,20 @@ void safeMoveTo(long newpos){
   }
 }
 
+// prohibitedStates can combine different states e.g. osTripped | osBusy and will fail on any one
+// requiredStates  can combine different states e.g. osZeored | osPrimed and will fail if any one is not set
+// boolean passPreconditions(OpState prohibitedStates, OpState requiredStates, char* context){
+boolean passPreconditions(uint8_t prohibitedStates, uint8_t requiredStates, const char* context){
+  boolean result = (currentState & requiredStates) == requiredStates;
+  result &= (boolean)((currentState & prohibitedStates) == 0);
+
+  if(!result){
+    Serial.printf("Precondition check failed in %s\n", context);
+    if(debugPrint) Serial.printf("currentState=%#.2x prohibitedstates=%#.2x requiredstates=%#.2x\n", currentState, prohibitedStates, requiredStates);
+  }
+  return result;
+}
+
 void switchValve(valvePosition pos) {
   if(pos == vpInlet){
     valve.write(in);  //actuate Servo to inlet side
@@ -217,9 +231,7 @@ void switchValve(valvePosition pos) {
 
 //Filling the syringe to remove air
 void primeButtonPopCallBack(void *ptr){
-  if(containState(osTripped) || containState(osSettings)) return;  // do nothing if tripped
-  if(!containState(osZeroed)) {
-    Serial.println("Cannot prime until ZEROED");
+  if(!passPreconditions(osTripped | osSettings, osZeroed, "prime")){
     return;
   }
   includeState(osBusy);
@@ -249,7 +261,7 @@ void primeButtonPopCallBack(void *ptr){
 
 //actuate the three way valve invert the current position
 void switchValveButtonPopCallBack(void *prt){
-  if(containState(osTripped) || containState(osBusy)) return;
+  if(!passPreconditions(osTripped | osBusy, 0, "swicth valve")) return;
   uint32_t dual_state;
   includeState(osBusy);
   switchValveButton.getValue(&dual_state);
@@ -266,8 +278,9 @@ void switchValveButtonPopCallBack(void *prt){
 
 // empty the syringe by moving plunger up to zero volume
 void emptyButtonPopCallBack(void *prt){
-  if(containState(osTripped) || containState(osSettings)
-     || containState(osBusy)) return;  // do nothing if tripped
+  if(!passPreconditions(osTripped | osSettings | osBusy, 0, "empty")) {
+    return;
+  }
   includeState(osBusy);
   Serial.println("Empty syringe");
   switchValve(vpOutlet);
@@ -281,7 +294,9 @@ void emptyButtonPopCallBack(void *prt){
 
 // move the plunger up 5mm if possible
 void upButtonPopCallBack(void *prt){
-  if(containState(osTripped) || containState(osBusy)) return;
+  if(!passPreconditions(osTripped | osBusy, 0, "up")) {
+    return;
+  }
   includeState(osBusy);
   safeMoveTo(motor.currentPosition() - 5*stPmm);
   if (digitalRead(Top))
@@ -294,7 +309,9 @@ void upButtonPopCallBack(void *prt){
 
 // move the plunger down 5mm if posible
 void downButtonPopCallBack(void *prt){
-  if(containState(osTripped) || containState(osBusy)) return;
+  if(!passPreconditions(osTripped | osBusy, 0, "down")) {
+    return;
+  }
   includeState(osBusy);
   safeMoveTo(motor.currentPosition() + 5*stPmm);
   if (digitalRead(Bot))
@@ -442,9 +459,7 @@ void homeButtonPopCallBack(void *prt_){
 }
 
 void dispense(){
-  if(containState(osTripped) || containState(osSettings) || containState(osBusy)) return;  // do nothing if tripped
-  if(!containState(osPrimed)) {
-    Serial.println("Cannot dispense until PRIMED");
+  if(!passPreconditions(osTripped | osSettings | osBusy, osPrimed, "dispense")){
     return;
   }
   includeState(osBusy);
@@ -589,7 +604,8 @@ byte prevDosingButtonState = 1; // starting state = on
 byte dosingButtonState;
 
 void loop() {
-  if(!containState(osTripped)) {  // Scan for actions if not tripped
+  //if(!containState(osTripped))
+  {  // Scan for actions if not tripped
     nexLoop(nex_listen_list);
 
     // First read button state
