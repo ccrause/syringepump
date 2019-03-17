@@ -30,16 +30,17 @@ AccelStepper motor(1, stepPin, dirPin);
 #define configNameVolume "volume"
 #define configNameDiameter "diameter"
 
-enum OpState {osUnInitialized=0,  // default state
-              osZeroed=1,         // set after zeroing completed
-              osEmpty=2,          // set when empty action completed
-              osPrimed=4,         // set after prime cycle completed
-              osSettings=8,       // set when in settings screen
-              osTripped=128};     // set when motor is tripped
+enum OpState {osUnInitialized=0,  // startup state
+              osZeroed=1,         // zeroing completed
+              osEmpty=2,          // empty action completed
+              osPrimed=4,         // prime cycle completed
+              osSettings=8,       // in settings screen
+              osBusy=16,          // busy with action - not required at the moment since all actions are blocking
+              osTripped=128};     // motor is tripped
 OpState currentState = osUnInitialized;
-#define includeState(state,b) state = (OpState)(state | b)
-#define excludeState(state,b) state = (OpState)(state & ~b)
-#define containState(state,b) ((int)(state & b) == (int)b)
+#define includeState(state) currentState = (OpState)(currentState | state)
+#define excludeState(state) currentState = (OpState)(currentState & ~(state))
+#define containState(state) ((int)(currentState & state) == (int)state)
 
 //--------------------------------------------Variables-----------------------------------------------
 uint32_t stroke;   // max travel distance mm
@@ -147,7 +148,7 @@ void safeMoveTo(long newpos){
   while(motorIsRunning && (trip == false)){
     vTaskDelay(100 / portTICK_PERIOD_MS);
     // Update progress bar with plunger movement
-    if(containState(currentState, osZeroed) && (nexSerial.availableForWrite() > 20)) {
+    if(containState(osZeroed) && (nexSerial.availableForWrite() > 20)) {
       double progress = (100.0 * (float)(strokePosLimit - motor.currentPosition())) / strokePosLimit;
       if(progress > 100){
         progress = 100;
@@ -171,7 +172,7 @@ void safeMoveTo(long newpos){
 
   // Error diagnostics
   if(trip == true){
-    includeState(currentState, osTripped); //currentState |= osTripped;
+    includeState(osTripped);
     const char * msg1 = "==TRIP==";
     const char * msg2 = "TRIP: please service & restart";
     Serial.println(msg2);
@@ -216,11 +217,12 @@ void switchValve(valvePosition pos) {
 
 //Filling the syringe to remove air
 void primeButtonPopCallBack(void *ptr){
-  if(containState(currentState, osTripped) || containState(currentState, osSettings)) return;  // do nothing if tripped
-  if(!containState(currentState, osZeroed)) {
+  if(containState(osTripped) || containState(osSettings)) return;  // do nothing if tripped
+  if(!containState(osZeroed)) {
     Serial.println("Cannot prime until ZEROED");
     return;
   }
+  includeState(osBusy);
   Serial.println("Priming started");
   errMsg0.setText("Please Wait");
   statusText.setText("Priming"); // nextion status
@@ -229,26 +231,27 @@ void primeButtonPopCallBack(void *ptr){
     switchValve(vpOutlet);
     delay(250);       // give time for servo to move
     safeMoveTo(0);
-    if((currentState & osTripped) == osTripped) return;  // do nothing if tripped
+    if(containState(osTripped)) return;
     if(debugPrint) Serial.println("Syringe empty");
 
     switchValve(vpInlet);
     delay(250);       // give time for servo to move
     safeMoveTo(strokePosLimit);
-    if((currentState & osTripped) == osTripped) return;  // do nothing if tripped
+    if(containState(osTripped)) return;
     if(debugPrint) Serial.println("Syringe Filled");
   }
-  excludeState(currentState, osEmpty); // currentState = (OpState)(currentState & ~osEmpty);
-  includeState(currentState, osPrimed); // currentState |= (OpState)osPrimed;
+  excludeState(osEmpty | osBusy);
+  includeState(osPrimed);
   errMsg0.setText(" ");
-  statusText.setText("Ready"); // nextion status
+  statusText.setText("Ready");
   Serial.println("Priming finished");
 }
 
 //actuate the three way valve invert the current position
 void switchValveButtonPopCallBack(void *prt){
-  if(containState(currentState, osTripped)) return; //if((currentState & osTripped) == osTripped) return;  // do nothing if tripped
+  if(containState(osTripped) || containState(osBusy)) return;
   uint32_t dual_state;
+  includeState(osBusy);
   switchValveButton.getValue(&dual_state);
   if (!dual_state) {
     switchValve(vpInlet);
@@ -258,42 +261,52 @@ void switchValveButtonPopCallBack(void *prt){
     switchValve(vpOutlet);
     Serial.println("valve to outlet");
   }
+  excludeState(osBusy);
 }
 
 // empty the syringe by moving plunger up to zero volume
 void emptyButtonPopCallBack(void *prt){
-  if(containState(currentState, osTripped) || containState(currentState, osSettings)) return;  // do nothing if tripped
+  if(containState(osTripped) || containState(osSettings)
+     || containState(osBusy)) return;  // do nothing if tripped
+  includeState(osBusy);
   Serial.println("Empty syringe");
   switchValve(vpOutlet);
   delay(250);
   if(debugPrint) Serial.println("valve to outlet");
   safeMoveTo(0);
   if(debugPrint) Serial.println("Syringe empty");
-  includeState(currentState, osEmpty); // currentState |= osEmpty;
+  includeState(osEmpty);
+  excludeState(osBusy);
 }
 
 // move the plunger up 5mm if possible
 void upButtonPopCallBack(void *prt){
-  if(containState(currentState, osTripped)) return;  // do nothing if tripped
+  if(containState(osTripped) || containState(osBusy)) return;
+  includeState(osBusy);
   safeMoveTo(motor.currentPosition() - 5*stPmm);
   if (digitalRead(Top))
     Serial.println("Up 5mm");
   else
     Serial.println("Hit top stop!!!");
+
+  excludeState(osBusy);
 }
 
 // move the plunger down 5mm if posible
 void downButtonPopCallBack(void *prt){
-  if(containState(currentState, osTripped)) return;  // do nothing if tripped
+  if(containState(osTripped) || containState(osBusy)) return;
+  includeState(osBusy);
   safeMoveTo(motor.currentPosition() + 5*stPmm);
   if (digitalRead(Bot))
     Serial.println("Down 5mm");
   else
     Serial.println("Hit bottom stop!!!");
+
+  excludeState(osBusy);
 }
 
 void settingsButtonPopCallBack(void *ptr) {
-  includeState(currentState, osSettings);
+  includeState(osSettings);
 }
 
 float getVolume(void) {
@@ -381,7 +394,7 @@ void updateDosingParams(){
 void homeButtonPopCallBack(void *prt_){
   // update syringe diameter, stroke lenght and speed by reading the value's from nextion hmi
   delay(100); // hack to try and read stroke text, perhaps nextion is slow to copy & convert text from page1 to page0?
-  excludeState(currentState, osSettings);
+  excludeState(osSettings);
   uint32_t tmpStroke = getStroke();
   uint32_t tmpSpeed = getSpeed();
   float tmpDiameter = getDiameter();
@@ -392,6 +405,7 @@ void homeButtonPopCallBack(void *prt_){
 
     if(tmpStroke != stroke) {
       stroke = tmpStroke;
+      if(debugPrint) Serial.println("Saving stroke");
       if(configStorage.putUShort(configNameStroke, stroke) == 0){
         Serial.println("Error saving stroke");
       }
@@ -399,6 +413,7 @@ void homeButtonPopCallBack(void *prt_){
 
     if(tmpSpeed != speedPct) {
       speedPct = tmpSpeed;
+      if(debugPrint) Serial.println("Saving speed");
       if(configStorage.putUShort(configNameSpeed, speedPct) == 0){
         Serial.println("Error saving speed");
       }
@@ -406,12 +421,14 @@ void homeButtonPopCallBack(void *prt_){
 
     if(tmpVol != dispenseVol) {
       dispenseVol = tmpVol;
+      if(debugPrint) Serial.println("Saving volume");
       if(configStorage.putFloat(configNameVolume, dispenseVol) == 0){
         Serial.println("Error saving volume");
       }
     }
 
     if(tmpDiameter != diameter) {
+      if(debugPrint) Serial.println("Saving diameter");
       if(configStorage.putFloat(configNameDiameter, diameter) == 0){
         Serial.println("Error saving diameter");
       }
@@ -425,11 +442,12 @@ void homeButtonPopCallBack(void *prt_){
 }
 
 void dispense(){
-  if(containState(currentState, osTripped) || containState(currentState, osSettings)) return;  // do nothing if tripped
-  if(!containState(currentState, osPrimed)) {
+  if(containState(osTripped) || containState(osSettings) || containState(osBusy)) return;  // do nothing if tripped
+  if(!containState(osPrimed)) {
     Serial.println("Cannot dispense until PRIMED");
     return;
   }
+  includeState(osBusy);
   // start dispense cycle from bottom position
   if (motor.currentPosition() != strokePosLimit) {
     // valve should be open to inlet
@@ -437,7 +455,7 @@ void dispense(){
     delay(250);
     safeMoveTo(strokePosLimit);
   }
-  if(containState(currentState, osTripped)) return;  // do nothing if tripped
+  if(containState(osTripped)) return;  // do nothing if tripped
 
   totalDispensedVol = 0;
   for(byte i=0; i<dispenseCycles; i++){
@@ -445,15 +463,16 @@ void dispense(){
     displayDispenseVolume = true;
     delay(250);       // give time for servo to move
     safeMoveTo(motor.currentPosition() - dispenseStroke);
-    if(containState(currentState, osTripped)) return;  // do nothing if tripped
+    if(containState(osTripped)) return;  // do nothing if tripped
 
     displayDispenseVolume = false;
     switchValve(vpInlet);
     delay(250);       // give time for servo to move
     safeMoveTo(strokePosLimit);
-    if(containState(currentState, osTripped)) return;  // do nothing if tripped
+    if(containState(osTripped)) return;  // do nothing if tripped
   }
   volumeText.setText("Ready");
+  excludeState(osBusy);
 }
 
 // Reads config data from non-volatile storage
@@ -482,7 +501,7 @@ void setup(){
   Serial.begin(115200);//250000);
   delay(5);
   sendCommand("tsw 255,0"); // disable touch events of all components on screen
-
+  includeState(osBusy);
   if(debugPrint) Serial.printf("Setup executing on core # %d\n", xPortGetCoreID());
 //  sendCommand("baud=4800");
 //  delay(200);
@@ -538,7 +557,7 @@ void setup(){
   motor.setMaxSpeed(maxSpeed*stPmm/4);      // Set Max Speed of Stepper (Slower to get better accuracy)
   motor.setAcceleration(maxSpeed*stPmm/8);  // Set Acceleration of Stepper
   safeMoveTo(-100 * stPmm);
-  if(containState(currentState, osTripped)) return;  // do nothing if tripped
+  if(containState(osTripped)) return;  // do nothing if tripped
 
   motor.setCurrentPosition(0);  // Set the current position as zero
   progressBar0.setValue(100); //show slider value as zero
@@ -555,7 +574,8 @@ void setup(){
   statusText.setText("Not Ready"); //Status
   volumeText.setText("-----");// enable touch events of all components on screen
 
-  includeState(currentState, osZeroed);
+  includeState(osZeroed);
+  excludeState(osBusy);
   sendCommand("tsw 255,1"); // enable all touch events
   if(debugPrint) {
     Serial.println("Debug messages on");
@@ -569,7 +589,7 @@ byte prevDosingButtonState = 1; // starting state = on
 byte dosingButtonState;
 
 void loop() {
-  if(!containState(currentState, osTripped)) {;  // do nothing if tripped
+  if(!containState(osTripped)) {  // Scan for actions if not tripped
     nexLoop(nex_listen_list);
 
     // First read button state
@@ -578,6 +598,8 @@ void loop() {
     // Then check serial for commands
     if(Serial.available()){
       char c = Serial.read();
+      if(containState(osBusy))
+        Serial.printf("Busy, ignoring command %c\n", c);
       if(c == '?' || c == 'h'){
         Serial.println("0 : valve to inlet");
         Serial.println("1 : valve to outlet");
