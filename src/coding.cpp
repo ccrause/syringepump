@@ -180,6 +180,7 @@ void safeMoveTo(long newpos){
   // Error diagnostics
   if(trip == true){
     includeState(osTripped);
+    excludeState(osBusy);
     const char * msg1 = "==TRIP==";
     const char * msg2 = "TRIP: please service & restart";
     Serial.println(msg2);
