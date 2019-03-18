@@ -130,6 +130,13 @@ void nexTripAlert(){
   }
 }
 
+void resetAll() {
+  Serial.println("Software reset...");
+  sendCommand("rest");
+  delay(10);  // make sure command is transmitter over serial
+  ESP.restart();
+}
+
 void safeMoveTo(long newpos){
   // limit max travel to maximum allowed syringe stroke length
   if(newpos > strokePosLimit){
@@ -631,6 +638,7 @@ void loop() {
       Serial.println("d : dispense");
       Serial.println("b : disable debug printing");
       Serial.println("B : enable debug printing");
+      Serial.println("R : reset (use this to recover from a trip)");
     }
     else if(c == '0'){
       switchValve(vpInlet);
@@ -664,6 +672,9 @@ void loop() {
       debugPrint = true;
       Serial.println("Debug messages on");
     }
+    else if(c == 'R'){
+      resetAll();
+    }
   }
 
   // Check dosing button only if it was previously not pressed
@@ -676,5 +687,4 @@ void loop() {
     prevDosingButtonState = 1;
     if(debugPrint) Serial.println("Dispense button released");
   }
-
 }
