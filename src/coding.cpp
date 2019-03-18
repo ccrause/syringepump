@@ -194,20 +194,17 @@ void safeMoveTo(long newpos){
       Serial.println("safeMove didn't complete distance.");
       Serial.printf("Current position: %ld\n", motor.currentPosition());
     }
-    vTaskDelay(1);
     if(digitalRead(Top) == 0){
-      if(debugPrint) Serial.println("Hit top trip, setting pos=0");
-      motor.setCurrentPosition(0);
+      if(debugPrint) Serial.println("Hit top switch");
     }
     else if (digitalRead(Bot) == 0){
-      if(debugPrint) Serial.println("Hit top trip, setting pos=100");
-      motor.setCurrentPosition(100 * stPmm);
+      if(debugPrint) Serial.println("Hit bottom switch");
     }
   }
 }
 
 // prohibitedStates can combine different states e.g. osTripped | osBusy and will fail on any one
-// requiredStates  can combine different states e.g. osZeored | osPrimed and will fail if any one is not set
+// requiredStates can combine different states e.g. osZeored | osPrimed and will fail if any one is not set
 // boolean passPreconditions(OpState prohibitedStates, OpState requiredStates, char* context){
 boolean passPreconditions(uint8_t prohibitedStates, uint8_t requiredStates, const char* context){
   boolean result = (currentState & requiredStates) == requiredStates;
