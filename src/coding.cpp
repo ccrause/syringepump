@@ -62,34 +62,6 @@ const int in = 0; // servo angle for inlet aliagnment
 const int out = 140; // servo angle for outlet aliagnment
 enum valvePosition {vpInlet=0, vpOutlet};
 
-//-------------------------------------------------NEXTION---------------------------------------------
-/*NexPage page0 = NexPage(0, 0, "page0"); // Home Screen
-NexPage page1 = NexPage(1, 0, "page1"); // Settings Screen
-
-// Page 0 (Home)
-
-NexButton primeButton = NexButton(0, 1, "b0"); //Prime Syringe
-NexButton emptyButton = NexButton(0, 2, "b1"); // Empty Syringe
-NexButton settingsButton = NexButton(0, 3, "b2"); //Page1 not used in mcu
-NexProgressBar progressBar0 = NexProgressBar(0, 5, "j0"); //Syringe Slider 0=100% Full
-NexDSButton valvePosition0 = NexDSButton(0, 4, "bt0"); // Actual Valve Position 0=IN 1=Out
-NexText errMsg0 = NexText(0, 8, "t2"); //Error Display 28 Carracters max
-NexText statusText = NexText(0, 6, "t0"); //Status Text Ready, Running, Filling. Error
-NexText volumeText = NexText(0, 7, "t1"); //Current Syringe Volume
-
-//Page 1 (Settings)
-NexText errMsg1 = NexText(1, 9, "t4"); // Errror Diplay 15 caracters max
-NexDSButton switchValveButton = NexDSButton(1, 6, "bt1"); // Switch Valve Position 0=In 1=Out
-NexButton upButton = NexButton(1, 2, "b2"); // Move syringe UP
-NexButton downButton = NexButton(1, 3, "b3"); // Move Syringe Down
-NexButton homeButton = NexButton(1, 1, "b0"); // Home Page button update the values for the syringe by reading the vairious values
-NexDSButton valvePosition1 = NexDSButton(1, 4, "bt0"); // Actual Valve Position 0=In 1=Out
-NexProgressBar progressBar1 = NexProgressBar(1, 5, "j0"); //Syringe Slider 0=100% Full
-NexText volumeSettingText = NexText(1, 7, "t0"); //Set Volume
-NexText diameterText = NexText(1, 8, "t1"); //Syringe Diameter mm Float Not visable
-NexNumber strokeNumber = NexNumber(1, 11, "n1");
-NexNumber speedNumber = NexNumber(1, 10, "n0");*/
-
 
 //-------------------------------------------------NEXTION---------------------------------------------
 NexPage page0 = NexPage(0, 0, "page0"); // Home Screen
