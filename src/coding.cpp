@@ -63,7 +63,7 @@ const int out = 140; // servo angle for outlet aliagnment
 enum valvePosition {vpInlet=0, vpOutlet};
 
 //-------------------------------------------------NEXTION---------------------------------------------
-NexPage page0 = NexPage(0, 0, "page0"); // Home Screen
+/*NexPage page0 = NexPage(0, 0, "page0"); // Home Screen
 NexPage page1 = NexPage(1, 0, "page1"); // Settings Screen
 
 // Page 0 (Home)
@@ -88,7 +88,57 @@ NexProgressBar progressBar1 = NexProgressBar(1, 5, "j0"); //Syringe Slider 0=100
 NexText volumeSettingText = NexText(1, 7, "t0"); //Set Volume
 NexText diameterText = NexText(1, 8, "t1"); //Syringe Diameter mm Float Not visable
 NexNumber strokeNumber = NexNumber(1, 11, "n1");
-NexNumber speedNumber = NexNumber(1, 10, "n0");
+NexNumber speedNumber = NexNumber(1, 10, "n0");*/
+
+
+//-------------------------------------------------NEXTION---------------------------------------------
+NexPage page0 = NexPage(0, 0, "page0"); // Home Screen
+NexPage page1 = NexPage(1, 0, "page1"); // Settings Screen
+NexPage page2 = NexPage(2, 0, "page2"); // Manual Control Screen
+NexPage page3 = NexPage(3, 0, "page3"); // Stall / Tripp and reset Screen
+
+
+// Page 0 (Home)
+
+NexButton primeButton = NexButton(0, 1, "b0"); //Prime Syringe
+NexButton emptyButton = NexButton(0, 2, "b1"); // Empty Syringe
+NexButton settingsButton = NexButton(0, 3, "b2"); //Page1 not used in mcu
+NexDSButton valvePosition0 = NexDSButton(0, 4, "bt0"); // Actual Valve Position 0=IN 1=Out
+NexProgressBar progressBar0 = NexProgressBar(0, 5, "j0"); //Syringe Slider 0=100% Full
+NexText statusText = NexText(0, 6, "t0"); //Status Text Ready, Running, Filling. Error
+NexText volumeText = NexText(0, 7, "t1"); //Current Syringe Volume
+NexText errMsg0 = NexText(0, 8, "t2"); //Error Display 28 Carracters max
+
+//Folowing items has been deleted from NEXTION
+//the following are not vissible but available on page0 will bw updated when changed
+//NexText volumeHiddenText = NexText(0, 9, "t3"); //Set Volume
+//NexText diameterHiddenText = NexText(0, 10, "t4"); //Syringe Diameter mm Float Not visable
+//NexText strokeHiddenText = NexText(0, 11, "t5"); //Stroke Length mm Float Not visable
+//NexText speedHiddenText = NexText(0, 12, "t6"); // % of max speed
+
+//Page 1 (Settings)
+NexButton homeButton = NexButton(1, 1, "b0"); // Home Page button update the values for the syringe by reading the vairious values
+NexText volumeSettingText = NexText(1, 2, "t0"); //Set Volume
+NexText diameterText = NexText(1, 3, "t1"); //Syringe Diameter mm Float
+NexText errMsg1 = NexText(1, 4, "t4"); //Error Display 28 Carracters max
+NexNumber speedNumber = NexNumber(1, 5, "n0"); // % of max speed
+NexNumber strokeNumber =NexNumber(1, 6, "n1"); //Stroke Length mm int
+NexNumber primeCyclesNumber = NexNumber(1, 8, "n2"); //Number of cycles to prime
+NexButton manualPageButton = NexButton(1, 9, "b1"); //Prime Syringe
+
+//Page 2 (manual control)
+NexDSButton valvePosition1 = NexDSButton(2, 1, "bt0"); // Actual Valve Position 0=In 1=Out
+NexDSButton switchValveButton = NexDSButton(2, 2, "bt1"); // Switch Valve Position 0=In 1=Out
+NexButton upButton = NexButton(2, 3, "b0"); // Move syringe UP
+NexButton downButton = NexButton(2, 4, "b1"); // Move Syringe Down
+NexButton homeButtonP2 = NexButton(2, 5, "b2"); // Home Page button
+NexButton settingsButtonP2 = NexButton(2, 6, "b3"); //Page1 not used in mcu
+NexProgressBar progressBar1 = NexProgressBar(2, 7, "j0"); //Syringe Slider 0=100% Full
+NexText errMsg2 = NexText(2, 8, "t0"); // Errror Diplay 15 caracters max
+
+//Page 3 (TRIP Screen
+NexButton resetSystemButton = NexButton(3, 1, "b0"); //Page1 not used in mcu
+
 
 //buffer to read values from Nextion
 char buffer[30] = {0};
