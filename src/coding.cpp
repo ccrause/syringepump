@@ -20,15 +20,16 @@ AccelStepper motor(1, stepPin, dirPin);
 #define defaultSpeedPct 50
 #define defaultVolume 5.0
 #define defaultDiameter 20
+#define defaultPrimeCycles 2
 
 #define stPmm 800 //800; //steps per mm
 #define pi 3.14159265
-#define primeCycles 2 //number of times the syringe cycles
 #define configNamespace "pumpSettings"
 #define configNameStroke "stroke"
 #define configNameSpeed "speed"
 #define configNameVolume "volume"
 #define configNameDiameter "diameter"
+#define configNamePrimeCycles "prime"
 
 enum OpState {osUnInitialized=0,  // startup state
               osZeroed=1,         // zeroing completed
@@ -50,6 +51,7 @@ byte dispenseCycles;  // number of dispense cycles to dispense total volume
 long dispenseStroke = 0;  // stroke per dispense cycle
 float diameter;    // syringe diameter mm
 uint32_t speed;    // Actual speed in mm/sec
+uint32_t primeCycles; //number of times the syringe cycles
 
 long strokePosLimit = defaultStroke * stPmm; // max stroke position in steps (default 100 mm)
 bool displayDispenseVolume = false;
@@ -62,16 +64,13 @@ const int in = 0; // servo angle for inlet aliagnment
 const int out = 140; // servo angle for outlet aliagnment
 enum valvePosition {vpInlet=0, vpOutlet};
 
-
 //-------------------------------------------------NEXTION---------------------------------------------
 NexPage page0 = NexPage(0, 0, "page0"); // Home Screen
 NexPage page1 = NexPage(1, 0, "page1"); // Settings Screen
 NexPage page2 = NexPage(2, 0, "page2"); // Manual Control Screen
 NexPage page3 = NexPage(3, 0, "page3"); // Stall / Tripp and reset Screen
 
-
 // Page 0 (Home)
-
 NexButton primeButton = NexButton(0, 1, "b0"); //Prime Syringe
 NexButton emptyButton = NexButton(0, 2, "b1"); // Empty Syringe
 NexButton settingsButton = NexButton(0, 3, "b2"); //Page1 not used in mcu
@@ -87,9 +86,9 @@ NexText volumeSettingText = NexText(1, 2, "t0"); //Set Volume
 NexText diameterText = NexText(1, 3, "t1"); //Syringe Diameter mm Float
 NexText errMsg1 = NexText(1, 4, "t4"); //Error Display 28 Carracters max
 NexNumber speedNumber = NexNumber(1, 5, "n0"); // % of max speed
-NexNumber strokeNumber =NexNumber(1, 6, "n1"); //Stroke Length mm int
+NexNumber strokeNumber = NexNumber(1, 6, "n1"); //Stroke Length mm int
 NexNumber primeCyclesNumber = NexNumber(1, 8, "n2"); //Number of cycles to prime
-NexButton manualPageButton = NexButton(1, 9, "b1"); //Prime Syringe
+NexButton manualPageButton = NexButton(1, 9, "b1");
 
 //Page 2 (manual control)
 NexDSButton valvePosition1 = NexDSButton(2, 1, "bt0"); // Actual Valve Position 0=In 1=Out
@@ -103,7 +102,6 @@ NexText errMsg2 = NexText(2, 8, "t0"); // Errror Diplay 15 caracters max
 
 //Page 3 (TRIP Screen
 NexButton resetSystemButton = NexButton(3, 1, "b0"); //Page1 not used in mcu
-
 
 //buffer to read values from Nextion
 char buffer[30] = {0};
@@ -404,6 +402,20 @@ uint32_t getSpeed(void) {
   }
 }
 
+uint32_t getPrimeCycles(void) {
+  if(debugPrint) Serial.println("Get prime cycles from Nextion");
+
+  uint32_t temp = 0;
+  if(!primeCyclesNumber.getValue(&temp)) {
+    Serial.println("Error reading prime cycles.");
+    return 0;
+  }
+  else{
+    if(debugPrint) Serial.printf("Prime cycles = %d\n", temp);
+    return temp;
+  }
+}
+
 void updateDosingParams(){
   strokePosLimit = stroke * stPmm;
   if(debugPrint) Serial.printf("strokePosLimit: %ld\n", strokePosLimit);
@@ -438,6 +450,7 @@ void homeButtonPopCallBack(void *prt_){
   uint32_t tmpSpeed = getSpeed();
   float tmpDiameter = getDiameter();
   float tmpVol = getVolume();
+  uint32_t tmpPrimeCycles = getSpeed();
 
   if(configStorage.begin(configNamespace, false)){  // RW mode
     if(debugPrint) Serial.println("Saving config");
@@ -467,9 +480,18 @@ void homeButtonPopCallBack(void *prt_){
     }
 
     if(tmpDiameter != diameter) {
+      diameter = tmpDiameter;
       if(debugPrint) Serial.println("Saving diameter");
       if(configStorage.putFloat(configNameDiameter, diameter) == 0){
         Serial.println("Error saving diameter");
+      }
+    }
+
+    if(tmpPrimeCycles != primeCycles) {
+      primeCycles = tmpPrimeCycles;
+      if(debugPrint) Serial.println("Saving prime cycles");
+      if(configStorage.putUShort(configNameStroke, primeCycles) == 0){
+        Serial.println("Error saving prime cycles");
       }
     }
     configStorage.end();
@@ -525,6 +547,7 @@ void loadConfig(){
   speedPct = configStorage.getUShort(configNameSpeed, defaultSpeedPct);
   dispenseVol = configStorage.getFloat(configNameVolume, defaultVolume);
   diameter = configStorage.getFloat(configNameDiameter, defaultDiameter);
+  primeCycles = configStorage.getUShort(configNamePrimeCycles, defaultPrimeCycles);
   configStorage.end();
   updateDosingParams();
 
@@ -535,6 +558,7 @@ void loadConfig(){
   volumeSettingText.setText(buffer);
   sprintf(buffer, "%.3f", diameter);
   diameterText.setText(buffer);
+  primeCyclesNumber.setValue(primeCycles);
 }
 
 void setup(){
