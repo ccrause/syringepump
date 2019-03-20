@@ -237,7 +237,7 @@ void primeButtonPopCallBack(void *ptr){
   errMsg0.setText("Please Wait");
   statusText.setText("Priming"); // nextion status
   totalDispensedVol = 0;
-  for (byte i = 0; i < (primeCycles); i++){
+  for (byte i = 0; i < primeCycles; i++){
     switchValve(vpOutlet);
     delay(250);       // give time for servo to move
     safeMoveTo(0);
@@ -430,7 +430,7 @@ void homeButtonPopCallBack(void *prt_){
   uint32_t tmpSpeed = getSpeed();
   float tmpDiameter = getDiameter();
   float tmpVol = getVolume();
-  uint32_t tmpPrimeCycles = getSpeed();
+  uint32_t tmpPrimeCycles = getPrimeCycles();
 
   if(configStorage.begin(configNamespace, false)){  // RW mode
     if(debugPrint) Serial.println("Saving config");
@@ -470,7 +470,7 @@ void homeButtonPopCallBack(void *prt_){
     if(tmpPrimeCycles != primeCycles) {
       primeCycles = tmpPrimeCycles;
       if(debugPrint) Serial.println("Saving prime cycles");
-      if(configStorage.putUShort(configNameStroke, primeCycles) == 0){
+      if(configStorage.putUShort(configNamePrimeCycles, primeCycles) == 0){
         Serial.println("Error saving prime cycles");
       }
     }
