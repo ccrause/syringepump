@@ -115,6 +115,7 @@ NexTouch *nex_listen_list[] = {
   &upButton, //Move up 5mm
   &downButton, //Move down 5mm
   &settingsButton,
+  &resetSystemButton,
   NULL
 };
 
@@ -124,23 +125,9 @@ Preferences configStorage;
 void updateDosingParams();
 
 void nexTripAlert(){
-  #define screen_width 272
-  #define screen_height 483
-  #define w 186
-  #define h 100
-  #define x ((screen_width - w) / 2)
-  #define y ((screen_height - h) / 2)
-  #define fontID 2
-  #define bufLen 60
-  char commandBuffer[bufLen];
-
-  snprintf(commandBuffer, bufLen, "xstr %d,%d,%d,%d,%d,%s,%s,%d,%d,%d,\"%s\"",
-           x, y, w, h, fontID, "BLACK", "RED", 1, 1, 1, "TRIP");
-  sendCommand(commandBuffer);
-  if(!recvRetCommandFinished(100)){
-    Serial.println("Error drawing text:");
-    Serial.println(commandBuffer);
-  }
+  const char * msg2 = "TRIP: please service & restart";
+  Serial.println(msg2);
+  sendCommand("page 3"); // page3.show() doesn't work??
 }
 
 void resetAll() {
@@ -194,13 +181,6 @@ void safeMoveTo(long newpos){
   if(trip == true){
     includeState(osTripped);
     excludeState(osBusy);
-    const char * msg1 = "==TRIP==";
-    const char * msg2 = "TRIP: please service & restart";
-    Serial.println(msg2);
-    errMsg0.setText(msg2);
-    errMsg1.setText(msg2);
-    statusText.setText(msg1);
-    sendCommand("tsw 255,0"); // disable touch events of all components on screen
     nexTripAlert();
   }
   else if(motor.distanceToGo() != 0){
@@ -502,6 +482,10 @@ void homeButtonPopCallBack(void *prt_){
   updateDosingParams();
 }
 
+void resetSystemButtonPopCallback(void *ptr_) {
+  resetAll();
+}
+
 void dispense(){
   if(!passPreconditions(osTripped | osSettings | osBusy, osPrimed, "dispense")){
     return;
@@ -610,6 +594,7 @@ void setup(){
   upButton.attachPop(upButtonPopCallBack, &upButton);
   downButton.attachPop(downButtonPopCallBack, &downButton);
   settingsButton.attachPop(settingsButtonPopCallBack, &settingsButton);
+  resetSystemButton.attachPop(resetSystemButtonPopCallback, &resetSystemButton);
 
   errMsg0.setText("Please Wait   Setting Up"); //Top Line note spacing
   errMsg1.setText("Please Wait"); //P1 top line
