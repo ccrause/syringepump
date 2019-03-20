@@ -81,13 +81,6 @@ NexText statusText = NexText(0, 6, "t0"); //Status Text Ready, Running, Filling.
 NexText volumeText = NexText(0, 7, "t1"); //Current Syringe Volume
 NexText errMsg0 = NexText(0, 8, "t2"); //Error Display 28 Carracters max
 
-//Folowing items has been deleted from NEXTION
-//the following are not vissible but available on page0 will bw updated when changed
-//NexText volumeHiddenText = NexText(0, 9, "t3"); //Set Volume
-//NexText diameterHiddenText = NexText(0, 10, "t4"); //Syringe Diameter mm Float Not visable
-//NexText strokeHiddenText = NexText(0, 11, "t5"); //Stroke Length mm Float Not visable
-//NexText speedHiddenText = NexText(0, 12, "t6"); // % of max speed
-
 //Page 1 (Settings)
 NexButton homeButton = NexButton(1, 1, "b0"); // Home Page button update the values for the syringe by reading the vairious values
 NexText volumeSettingText = NexText(1, 2, "t0"); //Set Volume
