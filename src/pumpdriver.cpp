@@ -5,10 +5,11 @@
 
 // motorIsRunning should block other tasks from accessing motor related parameters
 // except for reading motor.currentPosition & motor.distanceToGo
-bool motorIsRunning = false;
+volatile bool motorIsRunning = false;
+volatile bool moveToPosition = true;
 
 // Approximate pulse width in stepper pulses of the encoder
-#define maxPulseCount 200 // 800*8 / (20*2) * 1.1
+#define maxPulseCount 220 // 800*8 / (20*2) * 1.1
 portMUX_TYPE counterMux = portMUX_INITIALIZER_UNLOCKED;
 volatile uint16_t stepper_count = 0;
 volatile bool trip = false;
@@ -42,17 +43,27 @@ void runMotor(void *P){
   esp_task_wdt_delete(NULL);
   while(trip == false){
     if(motorIsRunning){
-      if(motor.distanceToGo() > 0){ // Move down
-        while (digitalRead(Bot) && (motor.distanceToGo() != 0) && (trip == false)) {
-          motor.run();
+      if(moveToPosition){
+        if(motor.distanceToGo() > 0){ // Move down
+          while (digitalRead(Bot) && motor.run() && (trip == false)) {}
+        }
+        else{
+          while (digitalRead(Top) && motor.run() && (trip == false)) {}
+        }
+        motorIsRunning = false;
+      }
+      else {
+        if(motor.speed() > 0){ // Move down
+          if(digitalRead(Bot) && (trip == false)) {
+            motor.runSpeed();
+          }
+        }
+        else{
+          if (digitalRead(Top) && (trip == false)) {
+            motor.runSpeed();
+          }
         }
       }
-      else{
-        while (digitalRead(Top) && (motor.distanceToGo() != 0) && (trip == false)) {
-          motor.run();
-        }
-      }
-      motorIsRunning = false;
     }
     else
       vTaskDelay(100 / portTICK_PERIOD_MS);  // delay & yield execution for 50 ms - purpose is to not waste time in this task while motor is not running

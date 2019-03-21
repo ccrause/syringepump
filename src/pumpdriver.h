@@ -11,7 +11,8 @@
 
 // motorIsRunning should block other tasks from accessing motor related parameters
 // except for reading motor.currentPosition & motor.distanceToGo
-extern bool motorIsRunning;
+extern volatile bool motorIsRunning;
+extern volatile bool moveToPosition;
 extern volatile uint16_t stepper_count;
 extern volatile bool trip;
 

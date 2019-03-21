@@ -50,7 +50,7 @@ float dispenseVol, dispenseCycleVol, totalDispensedVol; // requested volume mL
 byte dispenseCycles;  // number of dispense cycles to dispense total volume
 long dispenseStroke = 0;  // stroke per dispense cycle
 float diameter;    // syringe diameter mm
-uint32_t speed;    // Actual speed in mm/sec
+int32_t speed;    // Actual speed in mm/sec
 uint32_t primeCycles; //number of times the syringe cycles
 
 long strokePosLimit = defaultStroke * stPmm; // max stroke position in steps (default 100 mm)
@@ -116,6 +116,7 @@ NexTouch *nex_listen_list[] = {
   &downButton, //Move down 5mm
   &settingsButton,
   &resetSystemButton,
+  &homeButtonP2,
   NULL
 };
 
@@ -143,11 +144,14 @@ void safeMoveTo(long newpos){
     newpos = strokePosLimit;
   }
 
-  if(debugPrint) Serial.printf("New position: %ld\n", newpos);
-
   // Reset trip counter to prevent spurious trip when reversing direction
   stepper_count = 0;
+  if(debugPrint) Serial.printf("New position: %ld\n", newpos);
+  if(debugPrint)  Serial.printf("Speed0: %f\n", motor.speed());
   motor.moveTo(newpos);
+  if(debugPrint)  Serial.printf("Distance to go: %ld, current position: %ld\n", motor.distanceToGo(), motor.currentPosition());
+  if(debugPrint)  Serial.printf("Speed: %f\n", motor.speed());
+  moveToPosition = true;
   motorIsRunning = true;
   float deltaVol = 0;
 
@@ -164,7 +168,7 @@ void safeMoveTo(long newpos){
         progress = 0;
       }
       progressBar0.setValue((uint32_t)progress);
-      progressBar1.setValue((uint32_t)progress);
+      // progressBar1.setValue((uint32_t)progress);  // probably local scope, get serial error here
 
       // update Volume display
       if(displayDispenseVolume){
@@ -194,6 +198,55 @@ void safeMoveTo(long newpos){
     else if (digitalRead(Bot) == 0){
       if(debugPrint) Serial.println("Hit bottom switch");
     }
+  }
+}
+
+void safeRun(long newSpeed){
+  if(debugPrint) Serial.printf("New speed: %ld\n", newSpeed);
+
+  // Reset trip counter to prevent spurious trip when reversing direction
+  stepper_count = 0;
+  float tempSpeed = motor.speed();
+  motor.setSpeed(newSpeed);
+  moveToPosition = false;
+  motorIsRunning = true;
+
+  // Wait until move is stopped frompop event
+  while(motorIsRunning && (trip == false)){
+    nexLoop(nex_listen_list);  // need to listed to pop event to stop - BREAK THE BLOCKING FLOW - BEWARE!!!!
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+    // Update progress bar with plunger movement
+    if(containState(osZeroed) && (nexSerial.availableForWrite() > 20)) {
+      double progress = (100.0 * (float)(strokePosLimit - motor.currentPosition())) / strokePosLimit;
+      if(progress > 100){
+        progress = 100;
+      }
+      else if(progress < 0){
+        progress = 0;
+      }
+      // progressBar0.setValue((uint32_t)progress);
+      // progressBar1.setValue((uint32_t)progress);
+    }
+  }
+  if (debugPrint) Serial.println("Stopped running");
+
+  // Restore previous speed
+  motor.setSpeed(tempSpeed);
+  // Need to reset _n in library -
+  motor.setCurrentPosition(motor.currentPosition());
+
+
+  // Error diagnostics
+  if(trip == true){
+    includeState(osTripped);
+    excludeState(osBusy);
+    nexTripAlert();
+  }
+  else if(digitalRead(Top) == 0){
+      if(debugPrint) Serial.println("Hit top switch");
+  }
+  else if (digitalRead(Bot) == 0){
+    if(debugPrint) Serial.println("Hit bottom switch");
   }
 }
 
@@ -293,32 +346,28 @@ void emptyButtonPopCallBack(void *prt){
 }
 
 // move the plunger up 5mm if possible
-void upButtonPopCallBack(void *prt){
+void upButtonPushCallback(void *prt){
+  if (debugPrint) Serial.println("Up button push callback");
+
   if(!passPreconditions(osTripped | osBusy, 0, "up")) {
     return;
   }
   includeState(osBusy);
-  safeMoveTo(motor.currentPosition() - 5*stPmm);
-  if (digitalRead(Top))
-    Serial.println("Up 5mm");
-  else
-    Serial.println("Hit top stop!!!");
-
-  excludeState(osBusy);
+  safeRun(-speed*stPmm / 8);
 }
 
-// move the plunger down 5mm if posible
-void downButtonPopCallBack(void *prt){
-  if(!passPreconditions(osTripped | osBusy, 0, "down")) {
+void downButtonPushCallback(void *prt){
+  if (debugPrint) Serial.println("Down button push callback");
+  if(!passPreconditions(osTripped | osBusy, 0, "up")) {
     return;
   }
   includeState(osBusy);
-  safeMoveTo(motor.currentPosition() + 5*stPmm);
-  if (digitalRead(Bot))
-    Serial.println("Down 5mm");
-  else
-    Serial.println("Hit bottom stop!!!");
+  safeRun(speed*stPmm / 8);
+}
 
+void up_downButtonPopCallback(void *prt){
+  if (debugPrint) Serial.println("Up_down button pop callback");
+  motorIsRunning = false;
   excludeState(osBusy);
 }
 
@@ -494,7 +543,6 @@ void dispense(){
   sendCommand("tsw 255, 0");  // disable touch events on screen
   // start dispense cycle from bottom position
   if (motor.currentPosition() != strokePosLimit) {
-    // valve should be open to inlet
     switchValve(vpInlet);
     delay(250);
     safeMoveTo(strokePosLimit);
@@ -589,10 +637,13 @@ void setup(){
   //register the pop events
   primeButton.attachPop(primeButtonPopCallBack);
   homeButton.attachPop(homeButtonPopCallBack);
+  homeButtonP2.attachPop(homeButtonPopCallBack);
   switchValveButton.attachPop(switchValveButtonPopCallBack);
   emptyButton.attachPop(emptyButtonPopCallBack);
-  upButton.attachPop(upButtonPopCallBack);
-  downButton.attachPop(downButtonPopCallBack);
+  upButton.attachPush(upButtonPushCallback);
+  upButton.attachPop(up_downButtonPopCallback);
+  downButton.attachPush(downButtonPushCallback);
+  downButton.attachPop(up_downButtonPopCallback);
   settingsButton.attachPop(settingsButtonPopCallBack);
   resetSystemButton.attachPop(resetSystemButtonPopCallback);
 
@@ -654,8 +705,8 @@ void loop() {
       Serial.println("0 : valve to inlet");
       Serial.println("1 : valve to outlet");
       Serial.println("p : prime");
-      Serial.println("+ : move 5 mm up");
-      Serial.println("- : move 5 mm down");
+      // Serial.println("+ : move 5 mm up");
+      // Serial.println("- : move 5 mm down");
       Serial.println("e : empty");
       Serial.println("d : dispense");
       Serial.println("b : disable debug printing");
@@ -673,12 +724,12 @@ void loop() {
     else if(c == 'p'){
       primeButtonPopCallBack(0);
     }
-    else if(c == '+'){
-      upButtonPopCallBack(0);
-    }
-    else if(c == '-'){
-      downButtonPopCallBack(0);
-    }
+    // else if(c == '+'){
+    //   upButtonPopCallBack(0);
+    // }
+    // else if(c == '-'){
+    //   downButtonPopCallBack(0);
+    // }
     else if(c == 'd'){
       // simulate a button press
       dosingButtonState = 0;
