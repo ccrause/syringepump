@@ -587,14 +587,14 @@ void setup(){
   delay(250);
 
   //register the pop events
-  primeButton.attachPop(primeButtonPopCallBack, &primeButton);
-  homeButton.attachPop(homeButtonPopCallBack, &homeButton);
-  switchValveButton.attachPop(switchValveButtonPopCallBack, &switchValveButton);
-  emptyButton.attachPop(emptyButtonPopCallBack, &emptyButton);
-  upButton.attachPop(upButtonPopCallBack, &upButton);
-  downButton.attachPop(downButtonPopCallBack, &downButton);
-  settingsButton.attachPop(settingsButtonPopCallBack, &settingsButton);
-  resetSystemButton.attachPop(resetSystemButtonPopCallback, &resetSystemButton);
+  primeButton.attachPop(primeButtonPopCallBack);
+  homeButton.attachPop(homeButtonPopCallBack);
+  switchValveButton.attachPop(switchValveButtonPopCallBack);
+  emptyButton.attachPop(emptyButtonPopCallBack);
+  upButton.attachPop(upButtonPopCallBack);
+  downButton.attachPop(downButtonPopCallBack);
+  settingsButton.attachPop(settingsButtonPopCallBack);
+  resetSystemButton.attachPop(resetSystemButtonPopCallback);
 
   errMsg0.setText("Please Wait   Setting Up"); //Top Line note spacing
   errMsg1.setText("Please Wait"); //P1 top line
