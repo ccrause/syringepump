@@ -475,6 +475,11 @@ void updateDosingParams(){
   strokePosLimit = stroke * stPmm;
   if(debugPrint) Serial.printf("strokePosLimit: %ld\n", strokePosLimit);
 
+  double tmpProgress = (100.0 * (float)(strokePosLimit - motor.currentPosition())) / strokePosLimit;
+  if(tmpProgress > 100) {tmpProgress = 100;}
+  else if(tmpProgress < 0) {tmpProgress = 0;}
+  progressBar0.setValue((uint32_t)tmpProgress);
+
   speed = (maxSpeed * speedPct) / 100;
   if(debugPrint) Serial.printf("Speed = %d\n", speed);
   motor.setMaxSpeed(speed * stPmm);
@@ -482,12 +487,15 @@ void updateDosingParams(){
 
   float Ac = (diameter/10);
   Ac = Ac*Ac/4*pi;  // in cm
-
   syringeVol = stroke/10 * Ac;
   if(debugPrint) Serial.printf("Syringe volume: %.3f\n", syringeVol);
   dispenseCycles = round((dispenseVol/syringeVol) + 0.5);
   dispenseCycleVol = dispenseVol / dispenseCycles;
   if(debugPrint) Serial.printf("Dispense cycles: %d\n", dispenseCycles);
+
+  float tmpVol = syringeVol * (100 - tmpProgress) / 100.0;
+  dtostrf(tmpVol, 5, 3, buffer);
+  volumeText.setText(buffer);
 
   dispenseStroke = dispenseCycleVol / Ac * 10 * stPmm;  // cm3/cm2 * 10 => mm
   if (dispenseStroke > strokePosLimit){
