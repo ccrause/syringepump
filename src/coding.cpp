@@ -230,8 +230,15 @@ void safeRun(long newSpeed){
       else if(progress < 0){
         progress = 0;
       }
-      // progressBar0.setValue((uint32_t)progress);
+
+      // Send command but do not read response
+      // This leaves Nextion response in serial buffer
+      // This response will then be removed by nexLoop without interfering with the nexLoop logic.
       // progressBar1.setValue((uint32_t)progress);
+      char buf[20] = {0};
+      const char sendCmd[] = "page2.j0.val=%d\xff\xff\xff";
+      int8_t len = sprintf(buf, sendCmd, (int)progress);
+      nexSerial.write(buf);
     }
   }
   if (debugPrint) Serial.println("Stopped running");
