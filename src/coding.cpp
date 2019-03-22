@@ -146,11 +146,18 @@ void safeMoveTo(long newpos){
 
   // Reset trip counter to prevent spurious trip when reversing direction
   stepper_count = 0;
-  if(debugPrint) Serial.printf("New position: %ld\n", newpos);
-  if(debugPrint)  Serial.printf("Speed0: %f\n", motor.speed());
+
+  if(debugPrint){
+    Serial.println("Before moveTo:");
+    Serial.printf("curPos: %ld\ntargetPos: %ld\nspeed: %0.2f\n",
+                  motor.currentPosition(), motor.targetPosition(), motor.speed());
+  }
   motor.moveTo(newpos);
-  if(debugPrint)  Serial.printf("Distance to go: %ld, current position: %ld\n", motor.distanceToGo(), motor.currentPosition());
-  if(debugPrint)  Serial.printf("Speed: %f\n", motor.speed());
+  if(debugPrint){
+    Serial.println("After moveTo:");
+    Serial.printf("curPos: %ld\ntargetPos: %ld\nspeed: %0.2f\n",
+                  motor.currentPosition(), motor.targetPosition(), motor.speed());
+  }
   moveToPosition = true;
   motorIsRunning = true;
   float deltaVol = 0;
@@ -206,14 +213,13 @@ void safeRun(long newSpeed){
 
   // Reset trip counter to prevent spurious trip when reversing direction
   stepper_count = 0;
-  float tempSpeed = motor.speed();
   motor.setSpeed(newSpeed);
   moveToPosition = false;
   motorIsRunning = true;
 
-  // Wait until move is stopped frompop event
+  // Wait until move is stopped from pop event
   while(motorIsRunning && (trip == false)){
-    nexLoop(nex_listen_list);  // need to listed to pop event to stop - BREAK THE BLOCKING FLOW - BEWARE!!!!
+    nexLoop(nex_listen_list);  // need to listed for pop event to stop - BREAK THE BLOCKING FLOW - BEWARE!!!!
     vTaskDelay(100 / portTICK_PERIOD_MS);
     // Update progress bar with plunger movement
     if(containState(osZeroed) && (nexSerial.availableForWrite() > 20)) {
@@ -230,11 +236,8 @@ void safeRun(long newSpeed){
   }
   if (debugPrint) Serial.println("Stopped running");
 
-  // Restore previous speed
-  motor.setSpeed(tempSpeed);
-  // Need to reset _n in library -
+  // Need to reset AccelStepper state so that using .run() doesn't give problems
   motor.setCurrentPosition(motor.currentPosition());
-
 
   // Error diagnostics
   if(trip == true){
