@@ -31,6 +31,16 @@ AccelStepper motor(1, stepPin, dirPin);
 #define configNameDiameter "diameter"
 #define configNamePrimeCycles "prime"
 
+// Common status strings
+const char msgFilling[] = "Filling";
+const char msgPriming[] = "Priming";
+const char msgError[] = "Error";
+const char msgZeroing[] = "Zeroing";
+const char msgReady[] = "Ready";
+const char msgNotReady[] = "Not Ready";
+const char msgDispensing[] = "Dispensing";
+const char msgEmptying[] = "Emptying";
+
 enum OpState {osUnInitialized=0,  // startup state
               osZeroed=1,         // zeroing completed
               osEmpty=2,          // empty action completed
@@ -300,9 +310,9 @@ void primeButtonPopCallBack(void *ptr){
     return;
   }
   includeState(osBusy);
-  Serial.println("Priming started");
+  Serial.println(msgPriming);
   errMsg0.setText("Please Wait");
-  statusText.setText("Priming"); // nextion status
+  statusText.setText(msgPriming); // nextion status
   totalDispensedVol = 0;
   for (byte i = 0; i < primeCycles; i++){
     switchValve(vpOutlet);
@@ -320,8 +330,8 @@ void primeButtonPopCallBack(void *ptr){
   excludeState(osEmpty | osBusy);
   includeState(osPrimed);
   errMsg0.setText(" ");
-  statusText.setText("Ready");
-  Serial.println("Priming finished");
+  statusText.setText(msgReady);
+  Serial.println(msgReady);
   // Empty Serial input buffer
   while(Serial.available()) Serial.read();
 }
@@ -349,12 +359,14 @@ void emptyButtonPopCallBack(void *prt){
     return;
   }
   includeState(osBusy);
-  Serial.println("Empty syringe");
+  Serial.println(msgEmptying);
+  statusText.setText(msgEmptying);
   switchValve(vpOutlet);
   delay(250);
   if(debugPrint) Serial.println("valve to outlet");
   safeMoveTo(0);
-  if(debugPrint) Serial.println("Syringe empty");
+  Serial.println(msgReady);
+  statusText.setText(msgReady);
   includeState(osEmpty);
   excludeState(osBusy);
 }
@@ -555,9 +567,12 @@ void dispense(){
   }
   includeState(osBusy);
   sendCommand("tsw 255, 0");  // disable touch events on screen
+  statusText.setText(msgDispensing);
+  Serial.println(msgDispensing);
   // start dispense cycle from bottom position
   if (motor.currentPosition() != strokePosLimit) {
     switchValve(vpInlet);
+    statusText.setText(msgFilling);
     delay(250);
     safeMoveTo(strokePosLimit);
   }
@@ -566,6 +581,7 @@ void dispense(){
   totalDispensedVol = 0;
   for(byte i=0; i<dispenseCycles; i++){
     switchValve(vpOutlet);
+    statusText.setText(msgDispensing);
     displayDispenseVolume = true;
     delay(250);       // give time for servo to move
     safeMoveTo(motor.currentPosition() - dispenseStroke);
@@ -573,11 +589,14 @@ void dispense(){
 
     displayDispenseVolume = false;
     switchValve(vpInlet);
+    statusText.setText(msgFilling);
     delay(250);       // give time for servo to move
     safeMoveTo(strokePosLimit);
     if(containState(osTripped)) return;  // do nothing if tripped
   }
   excludeState(osBusy);
+  statusText.setText(msgReady);
+  Serial.println(msgReady);
   sendCommand("tsw 255, 1");  // enable touch events on screen
   // Empty Serial input buffer
   while(Serial.available()) Serial.read();
@@ -662,10 +681,10 @@ void setup(){
 
   errMsg0.setText("Please Wait   Setting Up"); //Top Line note spacing
   errMsg1.setText("Please Wait"); //P1 top line
-  statusText.setText("Not Ready"); //Status
+  statusText.setText(msgZeroing); //Status
   volumeText.setText("-----"); // Volume
 
-  if(debugPrint) Serial.println("Stepper is Homing . . . . . . . . . . . ");
+  if(debugPrint) Serial.println(msgZeroing);
 
   motor.setMinPulseWidth(4);
   motor.setMaxSpeed(maxSpeed*stPmm/4);      // Set Max Speed of Stepper (Slower to get better accuracy)
@@ -685,7 +704,7 @@ void setup(){
   Serial.println("Setup done");
   errMsg0.setText("Please prime syringe"); //Top Line note spacing
   errMsg1.setText("Please prime"); //P1 top line
-  statusText.setText("Not Ready"); //Status
+  statusText.setText(msgNotReady); //Status
   volumeText.setText("-----");// enable touch events of all components on screen
 
   includeState(osZeroed);
@@ -766,11 +785,9 @@ void loop() {
   // Check dosing button only if it was previously not pressed
   if((dosingButtonState == 0) && (prevDosingButtonState != 0)){
     prevDosingButtonState = 0;
-    Serial.println("Dispensing...");
     dispense();
   }
   else if((dosingButtonState == 1) && (prevDosingButtonState == 0)) {
     prevDosingButtonState = 1;
-    if(debugPrint) Serial.println("Dispense button released");
   }
 }
