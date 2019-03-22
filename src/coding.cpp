@@ -52,6 +52,7 @@ long dispenseStroke = 0;  // stroke per dispense cycle
 float diameter;    // syringe diameter mm
 int32_t speed;    // Actual speed in mm/sec
 uint32_t primeCycles; //number of times the syringe cycles
+float syringeVol = 0;
 
 long strokePosLimit = defaultStroke * stPmm; // max stroke position in steps (default 100 mm)
 bool displayDispenseVolume = false;
@@ -176,13 +177,16 @@ void safeMoveTo(long newpos){
       }
       progressBar0.setValue((uint32_t)progress);
       // progressBar1.setValue((uint32_t)progress);  // probably local scope, get serial error here
+      float Vol = syringeVol * (100 - progress) / 100.0;
+      dtostrf(Vol, 5, 3, buffer);
+      volumeText.setText(buffer);
 
       // update Volume display
       if(displayDispenseVolume){
         progress = (100.0 * (float)(strokePosLimit - motor.currentPosition())) / dispenseStroke;
         deltaVol = dispenseCycleVol * progress / 100.0;
         dtostrf(totalDispensedVol + deltaVol, 5, 3, buffer);
-        volumeText.setText(buffer);
+        errMsg0.setText(buffer);
       }
     }
   }
@@ -237,7 +241,7 @@ void safeRun(long newSpeed){
       // progressBar1.setValue((uint32_t)progress);
       char buf[20] = {0};
       const char sendCmd[] = "page2.j0.val=%d\xff\xff\xff";
-      int8_t len = sprintf(buf, sendCmd, (int)progress);
+      sprintf(buf, sendCmd, (int)progress);
       nexSerial.write(buf);
     }
   }
@@ -467,7 +471,7 @@ void updateDosingParams(){
   float Ac = (diameter/10);
   Ac = Ac*Ac/4*pi;  // in cm
 
-  float syringeVol = stroke/10 * Ac;
+  syringeVol = stroke/10 * Ac;
   if(debugPrint) Serial.printf("Syringe volume: %.3f\n", syringeVol);
   dispenseCycles = round((dispenseVol/syringeVol) + 0.5);
   dispenseCycleVol = dispenseVol / dispenseCycles;
@@ -573,7 +577,6 @@ void dispense(){
     safeMoveTo(strokePosLimit);
     if(containState(osTripped)) return;  // do nothing if tripped
   }
-  volumeText.setText("Ready");
   excludeState(osBusy);
   sendCommand("tsw 255, 1");  // enable touch events on screen
   // Empty Serial input buffer
