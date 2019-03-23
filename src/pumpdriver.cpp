@@ -41,14 +41,15 @@ void runMotor(void *P){
 
   // Unsubscribe from TWDT so that long moves doesn't time-out
   esp_task_wdt_delete(NULL);
-  while(trip == false){
-    if(motorIsRunning){
+  trip = false;
+  while(true){
+    if(motorIsRunning && (trip == false)){
       if(moveToPosition){
         if(motor.distanceToGo() > 0){ // Move down
           while (digitalRead(Bot) && motor.run() && (trip == false)) {}
         }
         else{
-          while (digitalRead(Top) && motor.run() && (trip == false)) {}
+          while (motor.run() && (trip == false)) {}
         }
         motorIsRunning = false;
       }
@@ -59,7 +60,7 @@ void runMotor(void *P){
           }
         }
         else{
-          if (digitalRead(Top) && (trip == false)) {
+          if ((trip == false)) {
             motor.runSpeed();
           }
         }

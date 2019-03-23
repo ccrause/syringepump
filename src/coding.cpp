@@ -176,6 +176,9 @@ void safeMoveTo(long newpos){
   // Wait until move is finished
   while(motorIsRunning && (trip == false)){
     vTaskDelay(100 / portTICK_PERIOD_MS);
+
+    if(debugPrint) Serial.printf("curPos: %ld\ntargetPos: %ld\nspeed: %0.2f\n",
+                  motor.currentPosition(), motor.targetPosition(), motor.speed());
     // Update progress bar with plunger movement
     if(containState(osZeroed) && (nexSerial.availableForWrite() > 20)) {
       double progress = (100.0 * (float)(strokePosLimit - motor.currentPosition())) / strokePosLimit;
@@ -204,19 +207,27 @@ void safeMoveTo(long newpos){
 
   // Error diagnostics
   if(trip == true){
-    includeState(osTripped);
-    excludeState(osBusy);
-    nexTripAlert();
+    // if not yet zeroed, set zero point 1 mm back
+    if(debugPrint) Serial.println("Trip detected");
+    if(!containState(osZeroed)){
+      motor.setCurrentPosition(-stPmm);
+      if(debugPrint) Serial.println("Zero point set at -1 mm");
+      includeState(osZeroed);
+      trip = false;
+      motorIsRunning = false;
+    }
+    else{
+      includeState(osTripped);
+      excludeState(osBusy);
+      nexTripAlert();
+    }
   }
   else if(motor.distanceToGo() != 0){
     if(debugPrint){
       Serial.println("safeMove didn't complete distance.");
       Serial.printf("Current position: %ld\n", motor.currentPosition());
     }
-    if(digitalRead(Top) == 0){
-      if(debugPrint) Serial.println("Hit top switch");
-    }
-    else if (digitalRead(Bot) == 0){
+    if (digitalRead(Bot) == 0){
       if(debugPrint) Serial.println("Hit bottom switch");
     }
   }
@@ -266,16 +277,13 @@ void safeRun(long newSpeed){
     excludeState(osBusy);
     nexTripAlert();
   }
-  else if(digitalRead(Top) == 0){
-      if(debugPrint) Serial.println("Hit top switch");
-  }
   else if (digitalRead(Bot) == 0){
     if(debugPrint) Serial.println("Hit bottom switch");
   }
 }
 
 // prohibitedStates can combine different states e.g. osTripped | osBusy and will fail on any one
-// requiredStates can combine different states e.g. osZeored | osPrimed and will fail if any one is not set
+// requiredStates can combine different states e.g. osZeroed | osPrimed and will fail if any one is not set
 // boolean passPreconditions(OpState prohibitedStates, OpState requiredStates, char* context){
 boolean passPreconditions(uint8_t prohibitedStates, uint8_t requiredStates, const char* context){
   boolean result = (currentState & requiredStates) == requiredStates;
@@ -634,9 +642,9 @@ void loadConfig(){
 }
 
 void setup(){
-  nexInit(115200); //start comunication
-  Serial.begin(115200);//250000);
-  delay(5);
+  nexInit(115200);
+  Serial.begin(115200);
+  if(debugPrint) delay(2000);  // delay startup to allow for serial monitor connection
   sendCommand("tsw 255,0"); // disable touch events of all components on screen
   includeState(osBusy);
   if(debugPrint) Serial.printf("Setup executing on core # %d\n", xPortGetCoreID());
@@ -698,9 +706,11 @@ void setup(){
   motor.setMaxSpeed(maxSpeed*stPmm/4);      // Set Max Speed of Stepper (Slower to get better accuracy)
   motor.setAcceleration(maxSpeed*stPmm/8);  // Set Acceleration of Stepper
   safeMoveTo(-100 * stPmm);
+  if(debugPrint) Serial.println("Moved up to trip point");
+  // safeMoveTo sets zero as trip -1 mm, so reset position to 0
+  safeMoveTo(0);
+  if(debugPrint) Serial.println("Moved to zero point");
   if(containState(osTripped)) return;  // do nothing if tripped
-
-  motor.setCurrentPosition(0);  // Set the current position as zero
   progressBar0.setValue(100); //show slider value as zero
   progressBar1.setValue(100); //Progress bar empty P1
   Serial.println("Homing Completed");
@@ -715,7 +725,6 @@ void setup(){
   statusText.setText(msgNotReady); //Status
   volumeText.setText("-----");// enable touch events of all components on screen
 
-  includeState(osZeroed);
   excludeState(osBusy);
   sendCommand("tsw 255,1"); // enable all touch events
   if(debugPrint) {
