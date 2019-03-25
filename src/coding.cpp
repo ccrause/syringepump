@@ -723,7 +723,6 @@ void setup(){
   errMsg0.setText("Please prime syringe"); //Top Line note spacing
   errMsg1.setText("Please prime"); //P1 top line
   statusText.setText(msgNotReady); //Status
-  volumeText.setText("-----");// enable touch events of all components on screen
 
   excludeState(osBusy);
   sendCommand("tsw 255,1"); // enable all touch events
