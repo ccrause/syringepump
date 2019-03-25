@@ -695,7 +695,7 @@ void setup(){
   settingsButton.attachPop(settingsButtonPopCallBack);
   resetSystemButton.attachPop(resetSystemButtonPopCallback);
 
-  errMsg0.setText("Please Wait   Setting Up"); //Top Line note spacing
+  errMsg0.setText("Please Wait    Setting Up"); //Top Line note spacing
   errMsg1.setText("Please Wait"); //P1 top line
   statusText.setText(msgZeroing); //Status
   volumeText.setText("-----"); // Volume
@@ -720,7 +720,7 @@ void setup(){
   motor.setAcceleration(speed * stPmm / 2);
 
   Serial.println("Setup done");
-  errMsg0.setText("Please prime syringe"); //Top Line note spacing
+  errMsg0.setText("Please prime   syringe"); //Top Line note spacing
   errMsg1.setText("Please prime"); //P1 top line
   statusText.setText(msgNotReady); //Status
 
