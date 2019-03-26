@@ -109,6 +109,7 @@ NexButton homeButtonP2 = NexButton(2, 5, "b2"); // Home Page button
 NexButton settingsButtonP2 = NexButton(2, 6, "b3"); //Page1 not used in mcu
 NexProgressBar progressBar1 = NexProgressBar(2, 7, "j0"); //Syringe Slider 0=100% Full
 NexText errMsg2 = NexText(2, 8, "t0"); // Errror Diplay 15 caracters max
+NexText volumeTextP2 = NexText(2, 9, "t1"); //Current Syringe Volume
 
 //Page 3 (TRIP Screen
 NexButton resetSystemButton = NexButton(3, 1, "b0"); //Page1 not used in mcu
