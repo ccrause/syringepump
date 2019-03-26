@@ -67,7 +67,7 @@ float syringeVol = 0;
 long strokePosLimit = defaultStroke * stPmm; // max stroke position in steps (default 100 mm)
 bool displayDispenseVolume = false;
 
-bool debugPrint = false;
+bool debugPrint = true;
 
 // -------------------------------------------Servo----------------------------------------------------
 Servo valve;
@@ -480,6 +480,7 @@ uint32_t getPrimeCycles(void) {
 }
 
 void updateDosingParams(){
+  if(debugPrint) Serial.printf("stroke: %dmm\n", stroke);
   strokePosLimit = stroke * stPmm;
   if(debugPrint) Serial.printf("strokePosLimit: %ld\n", strokePosLimit);
 
@@ -489,12 +490,13 @@ void updateDosingParams(){
   progressBar0.setValue((uint32_t)tmpProgress);
 
   speed = (maxSpeed * speedPct) / 100;
-  if(debugPrint) Serial.printf("Speed = %d\n", speed);
+  if(debugPrint) Serial.printf("Speed = %d mm/s\n", speed);
   motor.setMaxSpeed(speed * stPmm);
   motor.setAcceleration(speed * stPmm / 2);
 
   float Ac = (diameter/10);
   Ac = Ac*Ac/4*pi;  // in cm
+  if(debugPrint) Serial.printf("Ac: %.3f cm^2\n", Ac);
   syringeVol = stroke/10 * Ac;
   if(debugPrint) Serial.printf("Syringe volume: %.3f\n", syringeVol);
   dispenseCycles = round((dispenseVol/syringeVol) + 0.5);
@@ -517,6 +519,7 @@ void homeButtonPopCallBack(void *prt_){
   // update syringe diameter, stroke lenght and speed by reading the value's from nextion hmi
   delay(100); // hack to try and read stroke text, perhaps nextion is slow to copy & convert text from page1 to page0?
   excludeState(osSettings);
+  if(debugPrint) Serial.println("Reading settings from settings from Nextion.");
   uint32_t tmpStroke = getStroke();
   uint32_t tmpSpeed = getSpeed();
   float tmpDiameter = getDiameter();
