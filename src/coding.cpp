@@ -519,7 +519,7 @@ void homeButtonPopCallBack(void *prt_){
   // update syringe diameter, stroke lenght and speed by reading the value's from nextion hmi
   delay(100); // hack to try and read stroke text, perhaps nextion is slow to copy & convert text from page1 to page0?
   excludeState(osSettings);
-  if(debugPrint) Serial.println("Reading settings from settings from Nextion.");
+  if(debugPrint) Serial.println("Reading settings from Nextion.");
   uint32_t tmpStroke = getStroke();
   uint32_t tmpSpeed = getSpeed();
   float tmpDiameter = getDiameter();
