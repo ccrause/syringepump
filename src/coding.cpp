@@ -65,7 +65,8 @@ uint32_t primeCycles; //number of times the syringe cycles
 float syringeVol = 0;
 
 long strokePosLimit = defaultStroke * stPmm; // max stroke position in steps (default 100 mm)
-bool displayDispenseVolume = true;
+bool displayDispenseVolume = false;
+
 bool debugPrint = true;
 
 // -------------------------------------------Servo----------------------------------------------------
@@ -181,7 +182,7 @@ void safeMoveTo(long newpos){
                   motor.currentPosition(), motor.targetPosition(), motor.speed());
     // Update progress bar with plunger movement
     if(containState(osZeroed) && (nexSerial.availableForWrite() > 20)) {
-      double progress = (100.0 * (float)(strokePosLimit - motor.currentPosition())) / strokePosLimit;
+      float progress = (100.0f * (float)(strokePosLimit - motor.currentPosition())) / strokePosLimit;
       if(progress > 100){
         progress = 100;
       }
@@ -190,14 +191,14 @@ void safeMoveTo(long newpos){
       }
       progressBar0.setValue((uint32_t)progress);
       // progressBar1.setValue((uint32_t)progress);  // probably local scope, get serial error here
-      float Vol = syringeVol * (100 - progress) / 100.0;
+      float Vol = syringeVol * (100.0f - progress) / 100.0f;
       dtostrf(Vol, 5, 3, buffer);
       volumeText.setText(buffer);
 
       // update Volume display
       if(displayDispenseVolume){
-        progress = (100.0 * (float)(strokePosLimit - motor.currentPosition())) / dispenseStroke;
-        deltaVol = dispenseCycleVol * progress / 100.0;
+        progress = (100.0f * (float)(strokePosLimit - motor.currentPosition())) / dispenseStroke;
+        deltaVol = dispenseCycleVol * progress / 100.0f;
         dtostrf(totalDispensedVol + deltaVol, 5, 3, buffer);
         errMsg0.setText(buffer);
       }
@@ -480,33 +481,34 @@ uint32_t getPrimeCycles(void) {
 }
 
 void updateDosingParams(){
+  if(debugPrint) Serial.printf("stroke: %dmm\n", stroke);
   strokePosLimit = stroke * stPmm;
   if(debugPrint) Serial.printf("strokePosLimit: %ld\n", strokePosLimit);
 
-  double tmpProgress = (100.0 * (float)(strokePosLimit - motor.currentPosition())) / strokePosLimit;
+  float tmpProgress = (100.0f * (float)(strokePosLimit - motor.currentPosition())) / strokePosLimit;
   if(tmpProgress > 100) {tmpProgress = 100;}
   else if(tmpProgress < 0) {tmpProgress = 0;}
   progressBar0.setValue((uint32_t)tmpProgress);
 
-  speed = (maxSpeed * speedPct) / 100;
-  if(debugPrint) Serial.printf("Speed = %d\n", speed);
+  speed = (maxSpeed * speedPct) / 100.0f;
+  if(debugPrint) Serial.printf("Speed = %d mm/s\n", speed);
   motor.setMaxSpeed(speed * stPmm);
   motor.setAcceleration(speed * stPmm / 2);
 
-  float Ac = (diameter/10);
-  Ac = Ac*Ac/4*pi;  // in cm
-  syringeVol = stroke/10 * Ac;
-  if(debugPrint) Serial.printf("Syringe Area: %.3f\n", Ac);
+  float Ac = (diameter/10.0f);
+  Ac = Ac*Ac/4.0f*pi;  // in cm
+  if(debugPrint) Serial.printf("Ac: %.3f cm^2\n", Ac);
+  syringeVol = (float)stroke/10.0f * Ac;
   if(debugPrint) Serial.printf("Syringe volume: %.3f\n", syringeVol);
-  dispenseCycles = round((dispenseVol/syringeVol) + 0.5);
+  dispenseCycles = round((dispenseVol/syringeVol) + 0.5f);
   dispenseCycleVol = dispenseVol / dispenseCycles;
   if(debugPrint) Serial.printf("Dispense cycles: %d\n", dispenseCycles);
 
-  float tmpVol = syringeVol * (100 - tmpProgress) / 100.0;
+  float tmpVol = syringeVol * (100.0f - tmpProgress) / 100.0f;
   dtostrf(tmpVol, 5, 3, buffer);
   volumeText.setText(buffer);
 
-  dispenseStroke = dispenseCycleVol / Ac * 10 * stPmm;  // cm3/cm2 * 10 => mm
+  dispenseStroke = dispenseCycleVol / Ac * 10.0f * stPmm;  // cm3/cm2 * 10 => mm
   if (dispenseStroke > strokePosLimit){
     Serial.println("Dosing volume exeeds stroke limit");
     dispenseStroke = strokePosLimit;
@@ -518,6 +520,7 @@ void homeButtonPopCallBack(void *prt_){
   // update syringe diameter, stroke lenght and speed by reading the value's from nextion hmi
   delay(100); // hack to try and read stroke text, perhaps nextion is slow to copy & convert text from page1 to page0?
   excludeState(osSettings);
+  if(debugPrint) Serial.println("Reading settings from Nextion.");
   uint32_t tmpStroke = getStroke();
   uint32_t tmpSpeed = getSpeed();
   float tmpDiameter = getDiameter();
