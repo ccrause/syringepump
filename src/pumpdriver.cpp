@@ -9,7 +9,7 @@ volatile bool motorIsRunning = false;
 volatile bool moveToPosition = true;
 
 // Approximate pulse width in stepper pulses of the encoder
-#define maxPulseCount 220 // 800*8 / (20*2) * 1.1
+#define maxPulseCount 96 // 800*8 / (20*2) * 1.1
 portMUX_TYPE counterMux = portMUX_INITIALIZER_UNLOCKED;
 volatile uint16_t stepper_count = 0;
 volatile bool trip = false;
