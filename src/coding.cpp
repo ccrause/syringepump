@@ -190,7 +190,6 @@ void safeMoveTo(long newpos){
         progress = 0;
       }
       progressBar0.setValue((uint32_t)progress);
-      // progressBar1.setValue((uint32_t)progress);  // probably local scope, get serial error here
       float Vol = syringeVol * (100.0f - progress) / 100.0f;
       dtostrf(Vol, 5, 3, buffer);
       volumeText.setText(buffer);
@@ -260,10 +259,14 @@ void safeRun(long newSpeed){
       // Send command but do not read response
       // This leaves Nextion response in serial buffer
       // This response will then be removed by nexLoop without interfering with the nexLoop logic.
-      // progressBar1.setValue((uint32_t)progress);
-      char buf[20] = {0};
-      const char sendCmd[] = "page2.j0.val=%d\xff\xff\xff";
-      sprintf(buf, sendCmd, (int)progress);
+      char buf[32] = {0};
+      const char sendCmdVal[] = "page2.j0.val=%d\xff\xff\xff";
+      sprintf(buf, sendCmdVal, (int)progress);
+      nexSerial.write(buf);
+
+      float Vol = syringeVol * (100.0f - progress) / 100.0f;
+      const char sendCmdTxt[] = "page2.t1.txt=\"%.3f\"\xff\xff\xff";
+      sprintf(buf, sendCmdTxt, Vol);
       nexSerial.write(buf);
     }
   }
