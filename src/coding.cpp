@@ -484,7 +484,7 @@ uint32_t getPrimeCycles(void) {
 }
 
 void updateDosingParams(){
-  if(debugPrint) Serial.printf("stroke: %dmm\n", stroke);
+  if(debugPrint) Serial.printf("stroke: %dmm\n", (int)stroke);
   strokePosLimit = stroke * stPmm;
   if(debugPrint) Serial.printf("strokePosLimit: %ld\n", strokePosLimit);
 
@@ -586,6 +586,11 @@ void resetSystemButtonPopCallback(void *ptr_) {
 
 void dispense(){
   if(!passPreconditions(osTripped | osSettings | osBusy, osPrimed, "dispense")){
+    if(containState(osSettings)){
+      const char btnMsg[] = "Button active in Home screen only";
+      errMsg1.setText(btnMsg);
+      errMsg2.setText(btnMsg);
+    }
     return;
   }
   includeState(osBusy);
