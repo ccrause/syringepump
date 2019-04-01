@@ -717,6 +717,13 @@ void setup(){
   motor.setMinPulseWidth(4);
   motor.setMaxSpeed(maxSpeed*stPmm/4);      // Set Max Speed of Stepper (Slower to get better accuracy)
   motor.setAcceleration(maxSpeed*stPmm/8);  // Set Acceleration of Stepper
+
+  // Plunger zeroing
+  if(debugPrint) Serial.println("Checking if plunger is stuck");
+  includeState(osZeroed);  // disable zeroing  on trip
+  safeMoveTo(10 * stPmm);
+  excludeState(osZeroed);
+  if(containState(osTripped)) return;  // do nothing if tripped
   safeMoveTo(-100 * stPmm);
   if(debugPrint) Serial.println("Moved up to trip point");
   // safeMoveTo sets zero as trip -1 mm, so reset position to 0
