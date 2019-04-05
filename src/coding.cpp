@@ -47,6 +47,7 @@ enum OpState {osUnInitialized=0,  // startup state
               osPrimed=4,         // prime cycle completed
               osSettings=8,       // in settings screen
               osBusy=16,          // busy with action - not required at the moment since all actions are blocking
+              osManual=32,        // in manual screen
               osTripped=128};     // motor is tripped
 OpState currentState = osUnInitialized;
 #define includeState(state) currentState = (OpState)(currentState | state)
@@ -84,7 +85,8 @@ NexPage page3 = NexPage(3, 0, "page3"); // Stall / Tripp and reset Screen
 // Page 0 (Home)
 NexButton primeButton = NexButton(0, 1, "b0"); //Prime Syringe
 NexButton emptyButton = NexButton(0, 2, "b1"); // Empty Syringe
-NexButton settingsButton = NexButton(0, 3, "b2"); //Page1 not used in mcu
+NexButton settingsButtonP0 = NexButton(0, 3, "b2"); //Page1 not used in mcu
+NexButton manualButtonP0 = NexButton(0, 9, "b3"); //Page1 not used in mcu
 NexDSButton valvePosition0 = NexDSButton(0, 4, "bt0"); // Actual Valve Position 0=IN 1=Out
 NexProgressBar progressBar0 = NexProgressBar(0, 5, "j0"); //Syringe Slider 0=100% Full
 NexText statusText = NexText(0, 6, "t0"); //Status Text Ready, Running, Filling. Error
@@ -92,14 +94,14 @@ NexText volumeText = NexText(0, 7, "t1"); //Current Syringe Volume
 NexText errMsg0 = NexText(0, 8, "t2"); //Error Display 28 Carracters max
 
 //Page 1 (Settings)
-NexButton homeButton = NexButton(1, 1, "b0"); // Home Page button update the values for the syringe by reading the vairious values
+NexButton homeButtonP1 = NexButton(1, 1, "b0"); // Home Page button update the values for the syringe by reading the vairious values
 NexText volumeSettingText = NexText(1, 2, "t0"); //Set Volume
 NexText diameterText = NexText(1, 3, "t1"); //Syringe Diameter mm Float
 NexText errMsg1 = NexText(1, 4, "t4"); //Error Display 28 Carracters max
 NexNumber speedNumber = NexNumber(1, 5, "n0"); // % of max speed
 NexNumber strokeNumber = NexNumber(1, 6, "n1"); //Stroke Length mm int
 NexNumber primeCyclesNumber = NexNumber(1, 8, "n2"); //Number of cycles to prime
-NexButton manualPageButton = NexButton(1, 9, "b1");
+NexButton manualButtonP1 = NexButton(1, 9, "b1");
 
 //Page 2 (manual control)
 NexDSButton valvePosition1 = NexDSButton(2, 1, "bt0"); // Actual Valve Position 0=In 1=Out
@@ -121,14 +123,17 @@ char buffer[30] = {0};
 // Buttons that have a executable action assigned to them
 NexTouch *nex_listen_list[] = {
   &primeButton, // Prime
-  &homeButton,// Update Diameter, Stroke and Speed
+  &homeButtonP1,// Update Diameter, Stroke and Speed
+  &homeButtonP2,
   &switchValveButton, // Change Valve position
   &emptyButton, //Empty Syringe
   &upButton, //Move up 5mm
   &downButton, //Move down 5mm
-  &settingsButton,
+  &settingsButtonP0,
+  &settingsButtonP2,
+  &manualButtonP0,
+  &manualButtonP1,
   &resetSystemButton,
-  &homeButtonP2,
   NULL
 };
 
@@ -318,7 +323,7 @@ void switchValve(valvePosition pos) {
 
 //Filling the syringe to remove air
 void primeButtonPopCallBack(void *ptr){
-  if(!passPreconditions(osTripped | osSettings, osZeroed, "prime")){
+  if(!passPreconditions(osTripped | osSettings | osManual, osZeroed, "prime")){
     return;
   }
   includeState(osBusy);
@@ -350,7 +355,7 @@ void primeButtonPopCallBack(void *ptr){
 
 //actuate the three way valve invert the current position
 void switchValveButtonPopCallBack(void *prt){
-  if(!passPreconditions(osTripped | osBusy, 0, "swicth valve")) return;
+  if(!passPreconditions(osTripped | osBusy | osManual, 0, "swicth valve")) return;
   uint32_t dual_state;
   includeState(osBusy);
   switchValveButton.getValue(&dual_state);
@@ -367,7 +372,7 @@ void switchValveButtonPopCallBack(void *prt){
 
 // empty the syringe by moving plunger up to zero volume
 void emptyButtonPopCallBack(void *prt){
-  if(!passPreconditions(osTripped | osSettings | osBusy, 0, "empty")) {
+  if(!passPreconditions(osTripped | osSettings | osManual | osBusy, 0, "empty")) {
     return;
   }
   includeState(osBusy);
@@ -411,6 +416,12 @@ void up_downButtonPopCallback(void *prt){
 
 void settingsButtonPopCallBack(void *ptr) {
   includeState(osSettings);
+  excludeState(osManual);
+}
+
+void manualButtonPopCallBack(void *ptr) {
+  includeState(osManual);
+  excludeState(osSettings);
 }
 
 float getVolume(void) {
@@ -523,6 +534,7 @@ void homeButtonPopCallBack(void *prt_){
   // update syringe diameter, stroke lenght and speed by reading the value's from nextion hmi
   delay(100); // hack to try and read stroke text, perhaps nextion is slow to copy & convert text from page1 to page0?
   excludeState(osSettings);
+  excludeState(osManual);
   if(debugPrint) Serial.println("Reading settings from Nextion.");
   uint32_t tmpStroke = getStroke();
   uint32_t tmpSpeed = getSpeed();
@@ -585,10 +597,12 @@ void resetSystemButtonPopCallback(void *ptr_) {
 }
 
 void dispense(){
-  if(!passPreconditions(osTripped | osSettings | osBusy, osPrimed, "dispense")){
+  if(!passPreconditions(osTripped | osSettings | osManual | osBusy, osPrimed, "dispense")){
+    const char btnMsg[] = "Button active in Home screen only";
     if(containState(osSettings)){
-      const char btnMsg[] = "Button active in Home screen only";
       errMsg1.setText(btnMsg);
+    }
+    else if(containState(osManual)){
       errMsg2.setText(btnMsg);
     }
     return;
@@ -696,15 +710,18 @@ void setup(){
 
   //register the pop events
   primeButton.attachPop(primeButtonPopCallBack);
-  homeButton.attachPop(homeButtonPopCallBack);
-  homeButtonP2.attachPop(homeButtonPopCallBack);
   switchValveButton.attachPop(switchValveButtonPopCallBack);
   emptyButton.attachPop(emptyButtonPopCallBack);
   upButton.attachPush(upButtonPushCallback);
   upButton.attachPop(up_downButtonPopCallback);
   downButton.attachPush(downButtonPushCallback);
   downButton.attachPop(up_downButtonPopCallback);
-  settingsButton.attachPop(settingsButtonPopCallBack);
+  homeButtonP1.attachPop(homeButtonPopCallBack);
+  homeButtonP2.attachPop(homeButtonPopCallBack);
+  settingsButtonP0.attachPop(settingsButtonPopCallBack);
+  settingsButtonP2.attachPop(settingsButtonPopCallBack);
+  manualButtonP0.attachPop(manualButtonPopCallBack);
+  manualButtonP1.attachPop(manualButtonPopCallBack);
   resetSystemButton.attachPop(resetSystemButtonPopCallback);
 
   errMsg0.setText("Please Wait    Setting Up"); //Top Line note spacing
