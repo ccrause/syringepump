@@ -45,24 +45,12 @@ void runMotor(void *P){
   while(true){
     if(motorIsRunning && (trip == false)){
       if(moveToPosition){
-        if(motor.distanceToGo() > 0){ // Move down
-          while (digitalRead(Bot) && motor.run() && (trip == false)) {}
-        }
-        else{
-          while (motor.run() && (trip == false)) {}
-        }
+        while (motor.run() && (trip == false)) {}
         motorIsRunning = false;
       }
       else {
-        if(motor.speed() > 0){ // Move down
-          if(digitalRead(Bot) && (trip == false)) {
-            motor.runSpeed();
-          }
-        }
-        else{
-          if ((trip == false)) {
-            motor.runSpeed();
-          }
+        if ((trip == false)) {
+          motor.runSpeed();
         }
       }
     }

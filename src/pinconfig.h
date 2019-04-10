@@ -11,8 +11,8 @@
 
 #define stepInputPin 23 // pin used to trigger interrupt on step pin pulse
 
-#define Top 39 //upper end stop
-#define Bot 34 // lower end stop
+// #define Top 39 //upper end stop
+// #define Bot 34 // lower end stop
 #define doseButton 35 //cycle start button
 #define servo 13 // servo signal
 #define encoderPin 32 // screw encoder

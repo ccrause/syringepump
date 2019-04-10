@@ -225,9 +225,6 @@ void safeMoveTo(long newpos){
       Serial.println("safeMove didn't complete distance.");
       Serial.printf("Current position: %ld\n", motor.currentPosition());
     }
-    if (digitalRead(Bot) == 0){
-      if(debugPrint) Serial.println("Hit bottom switch");
-    }
   }
 }
 
@@ -278,9 +275,6 @@ void safeRun(long newSpeed){
     includeState(osTripped);
     excludeState(osBusy);
     nexTripAlert();
-  }
-  else if (digitalRead(Bot) == 0){
-    if(debugPrint) Serial.println("Hit bottom switch");
   }
 }
 
@@ -673,7 +667,7 @@ bool checkZero(){
 
   // 2. Move 10 mm down without tripping
   safeMoveTo(10 * stPmm);
-  if(debugPrint) Serial.printf("2. Moved down 10 mm. CurPos = %d\n", motor.currentPosition());
+  if(debugPrint) Serial.println("2. Moved down 10 mm.");
   if(trip) return false;  // do nothing if tripped
 
   // 3. Move up until trip, set pos = -1 mm
@@ -683,7 +677,6 @@ bool checkZero(){
     motorIsRunning = false;
     trip = false;
     motor.setSpeed(0);  // Expect to trip at full speed, need to reset to 0 else code will want to slow down first
-    if(debugPrint) Serial.printf("CurPos = %d\n", motor.currentPosition());
     // should trip close to previous trip set at -1 mm
     if(abs(motor.currentPosition() + stPmm) > (stPmm/2)){
       Serial.println("Error checking zero point");
@@ -718,14 +711,9 @@ void setup(){
   if(debugPrint) Serial.println("Loading config");
   loadConfig();
 
-  pinMode(Bot, INPUT_PULLUP); //Limit Switch Connected to 0V
-  pinMode(Top, INPUT_PULLUP); //Limit Switch Connected to 0V
+  // pinMode(Bot, INPUT_PULLUP); //Limit Switch Connected to 0V
+  // pinMode(Top, INPUT_PULLUP); //Limit Switch Connected to 0V
   pinMode(doseButton, INPUT_PULLUP); //Switch Connected to 0V
-
-  if(debugPrint){
-    Serial.printf("Bottom end: %d\n", digitalRead(Bot));
-    Serial.printf("Top end: %d\n", digitalRead(Top));
-  }
 
   motor.setPinsInverted (false, false, false);
   pinMode(ms1, OUTPUT); //micro step
