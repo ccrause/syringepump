@@ -311,7 +311,8 @@ void switchValve(valvePosition pos) {
     valvePosition1.setValue(1); //update valve p1
     switchValveButton.setValue(1);  //update valve switch p1
   }
-  else if(debugPrint) Serial.printf("Invalid parametr passed to switchValve: %d", pos);
+  else if(debugPrint) Serial.printf("Invalid parameter passed to switchValve: %d", pos);
+  delay(250);
 }
 
 //Filling the syringe to remove air
@@ -326,13 +327,11 @@ void primeButtonPopCallBack(void *ptr){
   totalDispensedVol = 0;
   for (byte i = 0; i < primeCycles; i++){
     switchValve(vpOutlet);
-    delay(250);       // give time for servo to move
     safeMoveTo(0);
     if(containState(osTripped)) return;
     if(debugPrint) Serial.println("Syringe empty");
 
     switchValve(vpInlet);
-    delay(250);       // give time for servo to move
     safeMoveTo(strokePosLimit);
     if(containState(osTripped)) return;
     if(debugPrint) Serial.println("Syringe Filled");
@@ -372,7 +371,6 @@ void emptyButtonPopCallBack(void *prt){
   Serial.println(msgEmptying);
   statusText.setText(msgEmptying);
   switchValve(vpOutlet);
-  delay(250);
   if(debugPrint) Serial.println("valve to outlet");
   safeMoveTo(0);
   Serial.println(msgReady);
@@ -608,7 +606,6 @@ void dispense(){
   if (motor.currentPosition() != strokePosLimit) {
     switchValve(vpInlet);
     statusText.setText(msgFilling);
-    delay(250);
     safeMoveTo(strokePosLimit);
   }
   if(containState(osTripped)) return;  // do nothing if tripped
@@ -618,14 +615,12 @@ void dispense(){
     switchValve(vpOutlet);
     statusText.setText(msgDispensing);
     displayDispenseVolume = true;
-    delay(250);       // give time for servo to move
     safeMoveTo(motor.currentPosition() - dispenseStroke);
     if(containState(osTripped)) return;  // do nothing if tripped
 
     displayDispenseVolume = false;
     switchValve(vpInlet);
     statusText.setText(msgFilling);
-    delay(250);       // give time for servo to move
     safeMoveTo(strokePosLimit);
     if(containState(osTripped)) return;  // do nothing if tripped
   }
@@ -746,8 +741,7 @@ void setup(){
   delay(1);
 
   valve.attach(servo); //enable servo
-  switchValve(vpInlet);
-  delay(250);
+  switchValve(vpOutlet);
 
   //register the pop events
   primeButton.attachPop(primeButtonPopCallBack);
