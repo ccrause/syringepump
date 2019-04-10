@@ -214,14 +214,7 @@ void safeMoveTo(long newpos){
   if(trip == true){
     // if not yet zeroed, set zero point 1 mm back
     if(debugPrint) Serial.println("Trip detected");
-    if(!containState(osZeroed)){
-      motor.setCurrentPosition(-stPmm);
-      if(debugPrint) Serial.println("Zero point set at -1 mm");
-      includeState(osZeroed);
-      trip = false;
-      motorIsRunning = false;
-    }
-    else{
+    if(containState(osZeroed)){
       includeState(osTripped);
       excludeState(osBusy);
       nexTripAlert();
@@ -667,6 +660,54 @@ void loadConfig(){
   primeCyclesNumber.setValue(primeCycles);
 }
 
+bool checkZero(){
+  excludeState(osZeroed);  // disable screen updates, enable zeroing  on trip
+
+  // 1. Move up until trip, set pos = -1 mm
+  if(debugPrint) Serial.println("1.Move up...");
+  safeMoveTo(-100 * stPmm);
+  if(trip){
+    motorIsRunning = false;
+    trip = false;
+    motor.setCurrentPosition(-stPmm);
+  }
+  else{
+    if(debugPrint) Serial.println("Unexpectedly no trip");
+    return false;
+  }
+
+  // 2. Move 10 mm down without tripping
+  safeMoveTo(10 * stPmm);
+  if(debugPrint) Serial.printf("2. Moved down 10 mm. CurPos = %d\n", motor.currentPosition());
+  if(trip) return false;  // do nothing if tripped
+
+  // 3. Move up until trip, set pos = -1 mm
+  if(debugPrint) Serial.println("3. Move back up...");
+  safeMoveTo(-100 * stPmm);
+  if(trip){
+    motorIsRunning = false;
+    trip = false;
+    motor.setSpeed(0);  // Expect to trip at full speed, need to reset to 0 else code will want to slow down first
+    if(debugPrint) Serial.printf("CurPos = %d\n", motor.currentPosition());
+    // should trip close to previous trip set at -1 mm
+    if(abs(motor.currentPosition() + stPmm) > (stPmm/2)){
+      Serial.println("Error checking zero point");
+      return false;
+    }
+  }
+  else{
+    if(debugPrint) Serial.println("Unexpectedly no trip");
+    return false;
+  }
+
+  // 4. Move to zero
+  if(debugPrint) Serial.println("4. Move to 0");
+  safeMoveTo(0);
+  if(trip) return false;
+  includeState(osZeroed);
+  return true;
+}
+
 void setup(){
   nexInit(115200);
   Serial.begin(115200);
@@ -736,17 +777,11 @@ void setup(){
   motor.setAcceleration(maxSpeed*stPmm/8);  // Set Acceleration of Stepper
 
   // Plunger zeroing
-  if(debugPrint) Serial.println("Checking if plunger is stuck");
-  includeState(osZeroed);  // disable zeroing  on trip
-  safeMoveTo(10 * stPmm);
-  excludeState(osZeroed);
-  if(containState(osTripped)) return;  // do nothing if tripped
-  safeMoveTo(-100 * stPmm);
-  if(debugPrint) Serial.println("Moved up to trip point");
-  // safeMoveTo sets zero as trip -1 mm, so reset position to 0
-  safeMoveTo(0);
-  if(debugPrint) Serial.println("Moved to zero point");
-  if(containState(osTripped)) return;  // do nothing if tripped
+  if(!checkZero()){
+    Serial.println("Error finding zero");
+    nexTripAlert();
+    return;
+  };
   progressBar0.setValue(100); //show slider value as zero
   progressBar1.setValue(100); //Progress bar empty P1
   Serial.println("Homing Completed");
