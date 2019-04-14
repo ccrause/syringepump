@@ -6,13 +6,13 @@
 #include "SPI.h"
 #include "SD.h"
 #include "AccelStepper.h"
+#include "pinconfig.h"
 #include "pumpdriver.h"
 #include "Servo.h"  // Uses ServoESP32 library.  In platformIO: http://platformio.org/lib/show/1739/ServoESP32
-#include "pinconfig.h"
 #include "AccelStepper.h"
 #include <Preferences.h>
 
-AccelStepper motor(1, stepPin, dirPin);
+// AccelStepper motor(1, stepPin, dirPin);
 
 #define maxSpeed 40 // mm/s
 #define maxAcceleration maxSpeed / 2  // mm/s/s
@@ -162,7 +162,7 @@ void safeMoveTo(long newpos){
   }
 
   // Reset trip counter to prevent spurious trip when reversing direction
-  stepper_count = 0;
+  motor.stepper_count = 0;
 
   if(debugPrint){
     Serial.println("Before moveTo:");
@@ -175,12 +175,12 @@ void safeMoveTo(long newpos){
     Serial.printf("curPos: %ld\ntargetPos: %ld\nspeed: %0.2f\n",
                   motor.currentPosition(), motor.targetPosition(), motor.speed());
   }
-  moveToPosition = true;
-  motorIsRunning = true;
+  motor.moveToPosition = true;
+  motor.running = true;
   float deltaVol = 0;
 
   // Wait until move is finished
-  while(motorIsRunning && (trip == false)){
+  while(motor.running && (motor.trip == false)){
     vTaskDelay(100 / portTICK_PERIOD_MS);
 
     if(debugPrint) Serial.printf("curPos: %ld\ntargetPos: %ld\nspeed: %0.2f\n",
@@ -211,7 +211,7 @@ void safeMoveTo(long newpos){
   totalDispensedVol += deltaVol;
 
   // Error diagnostics
-  if(trip == true){
+  if(motor.trip == true){
     // if not yet zeroed, set zero point 1 mm back
     if(debugPrint) Serial.println("Trip detected");
     if(containState(osZeroed)){
@@ -232,13 +232,13 @@ void safeRun(long newSpeed){
   if(debugPrint) Serial.printf("New speed: %ld\n", newSpeed);
 
   // Reset trip counter to prevent spurious trip when reversing direction
-  stepper_count = 0;
+  motor.stepper_count = 0;
   motor.setSpeed(newSpeed);
-  moveToPosition = false;
-  motorIsRunning = true;
+  motor.moveToPosition = false;
+  motor.running = true;
 
   // Wait until move is stopped from pop event
-  while(motorIsRunning && (trip == false)){
+  while(motor.running && (motor.trip == false)){
     nexLoop(nex_listen_list);  // need to listed for pop event to stop - BREAK THE BLOCKING FLOW - BEWARE!!!!
     vTaskDelay(100 / portTICK_PERIOD_MS);
     // Update progress bar with plunger movement
@@ -271,7 +271,7 @@ void safeRun(long newSpeed){
   motor.setCurrentPosition(motor.currentPosition());
 
   // Error diagnostics
-  if(trip == true){
+  if(motor.trip == true){
     includeState(osTripped);
     excludeState(osBusy);
     nexTripAlert();
@@ -395,7 +395,7 @@ void downButtonPushCallback(void *prt){
 
 void up_downButtonPopCallback(void *prt){
   if (debugPrint) Serial.println("Up_down button pop callback");
-  motorIsRunning = false;
+  motor.running = false;
   excludeState(osBusy);
 }
 
@@ -655,9 +655,9 @@ bool checkZero(){
   // 1. Move up until trip, set pos = -1 mm
   if(debugPrint) Serial.println("1.Move up...");
   safeMoveTo(-100 * stPmm);
-  if(trip){
-    motorIsRunning = false;
-    trip = false;
+  if(motor.trip){
+    motor.running = false;
+    motor.trip = false;
     motor.setCurrentPosition(-stPmm);
   }
   else{
@@ -668,14 +668,14 @@ bool checkZero(){
   // 2. Move 10 mm down without tripping
   safeMoveTo(10 * stPmm);
   if(debugPrint) Serial.println("2. Moved down 10 mm.");
-  if(trip) return false;  // do nothing if tripped
+  if(motor.trip) return false;  // do nothing if tripped
 
   // 3. Move up until trip, set pos = -1 mm
   if(debugPrint) Serial.println("3. Move back up...");
   safeMoveTo(-100 * stPmm);
-  if(trip){
-    motorIsRunning = false;
-    trip = false;
+  if(motor.trip){
+    motor.running = false;
+    motor.trip = false;
     motor.setSpeed(0);  // Expect to trip at full speed, need to reset to 0 else code will want to slow down first
     // should trip close to previous trip set at -1 mm
     if(abs(motor.currentPosition() + stPmm) > (stPmm/2)){
@@ -691,7 +691,7 @@ bool checkZero(){
   // 4. Move to zero
   if(debugPrint) Serial.println("4. Move to 0");
   safeMoveTo(0);
-  if(trip) return false;
+  if(motor.trip) return false;
   includeState(osZeroed);
   return true;
 }
@@ -713,19 +713,19 @@ void setup(){
 
   // pinMode(Bot, INPUT_PULLUP); //Limit Switch Connected to 0V
   // pinMode(Top, INPUT_PULLUP); //Limit Switch Connected to 0V
-  pinMode(doseButton, INPUT_PULLUP); //Switch Connected to 0V
+  pinMode(dispenseButton, INPUT_PULLUP); //Switch Connected to 0V
 
   motor.setPinsInverted (false, false, false);
   pinMode(ms1, OUTPUT); //micro step
   pinMode(ms2, OUTPUT); //micro step
   pinMode(ms3, OUTPUT); //micro step
-  pinMode(enable, OUTPUT); //stepper driver
+  // pinMode(enable, OUTPUT); //stepper driver
   pinMode(dirPin, OUTPUT); //stepper driver
   pinMode(stepPin, OUTPUT ); //stepper driver
   digitalWrite (ms1, HIGH);
   digitalWrite (ms2, HIGH);
   digitalWrite (ms3, HIGH);
-  digitalWrite (enable, LOW); //enable stepper
+  // digitalWrite (enable, LOW); //enable stepper
   delay(1);
 
   valve.attach(servo); //enable servo
@@ -794,7 +794,7 @@ void loop() {
   nexLoop(nex_listen_list);
 
   // First read button state
-  dosingButtonState = digitalRead(doseButton);
+  dosingButtonState = digitalRead(dispenseButton);
 
   // Then check serial for commands
   if(Serial.available()){

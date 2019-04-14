@@ -3,63 +3,54 @@
 #include "pinconfig.h"
 #include <esp_task_wdt.h>
 
-// motorIsRunning should block other tasks from accessing motor related parameters
-// except for reading motor.currentPosition & motor.distanceToGo
-volatile bool motorIsRunning = false;
-volatile bool moveToPosition = true;
+myAccelStepper motor(1, stepPin, dirPin);
 
 // Approximate pulse width in stepper pulses of the encoder
 #define maxPulseCount 96 // 800*8 / (20*2) * 1.1
 portMUX_TYPE counterMux = portMUX_INITIALIZER_UNLOCKED;
-volatile uint16_t stepper_count = 0;
-volatile bool trip = false;
 
-void IRAM_ATTR stepperPulse() {
-  portENTER_CRITICAL_ISR(&counterMux);
-  stepper_count++;
-  portEXIT_CRITICAL_ISR(&counterMux);
-  if(stepper_count > maxPulseCount){
-    trip = true;
-    Serial.printf("Stepper pulse count: %d\n", stepper_count);
+boolean myAccelStepper::runSpeed(){
+  if (AccelStepper::runSpeed()) {
+    portENTER_CRITICAL_ISR(&counterMux);
+    uint16_t temp = motor.stepper_count++;
+    portEXIT_CRITICAL_ISR(&counterMux);
+    if (temp > maxPulseCount){
+      trip = true;
+    }
+    return true;
   }
+  return false;
 }
 
 void IRAM_ATTR encoderPulse() {
   portENTER_CRITICAL_ISR(&counterMux);
-  stepper_count = 0;
+  motor.stepper_count = 0;
   portEXIT_CRITICAL_ISR(&counterMux);
 }
 
-// runMotor task is thin but respect end stops
+// runMotor task is thin for high frequency stepping
 // User output should be done in a separate task
 void runMotor(void *P){
-  // Create motor stall cross interrupts
-  pinMode(stepInputPin, INPUT);
+  // Create motor stall clear interrupt
   pinMode(encoderPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(stepInputPin), stepperPulse, RISING);
   attachInterrupt(digitalPinToInterrupt(encoderPin), encoderPulse, CHANGE);
 
   // Unsubscribe from TWDT so that long moves doesn't time-out
   esp_task_wdt_delete(NULL);
-  trip = false;
+  motor.trip = false;
   while(true){
-    if(motorIsRunning && (trip == false)){
-      if(moveToPosition){
-        while (motor.run() && (trip == false)) {}
-        motorIsRunning = false;
+    if(motor.running && (motor.trip == false)){
+      if(motor.moveToPosition){
+        while (motor.run() && (motor.trip == false)) {}
+        motor.running = false;
       }
       else {
-        if ((trip == false)) {
-          motor.runSpeed();
-        }
+        motor.runSpeed();
       }
     }
     else
       vTaskDelay(100 / portTICK_PERIOD_MS);  // delay & yield execution for 50 ms - purpose is to not waste time in this task while motor is not running
   }
-  motorIsRunning = false;
-  // Kiss task goodbye
-  vTaskDelete(NULL);
 }
 
 void initStepperRunner(){

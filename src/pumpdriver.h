@@ -3,23 +3,21 @@
 
 #include "AccelStepper.h"
 
-//extern const long stPmm; //800; //steps per mm
-//extern long strokePosLimit; // max stroke position in steps (default 100 mm)
-//extern long dosingStroke;
-//extern bool updateVol;
-//extern bool displayDispenseProgress;
+class myAccelStepper: public AccelStepper{
+public:
+  myAccelStepper(uint8_t interface = AccelStepper::FULL4WIRE, uint8_t pin1 = 2, uint8_t pin2 = 3, uint8_t pin3 = 4,
+     uint8_t pin4 = 5, bool enable = true)
+     :AccelStepper(interface, pin1, pin2, pin3, pin4, enable){};
 
-// motorIsRunning should block other tasks from accessing motor related parameters
-// except for reading motor.currentPosition & motor.distanceToGo
-extern volatile bool motorIsRunning;
-extern volatile bool moveToPosition;
-extern volatile uint16_t stepper_count;
-extern volatile bool trip;
+  boolean runSpeed();
 
+  volatile uint16_t stepper_count;
+  volatile bool running;
+  volatile bool moveToPosition;
+  volatile bool trip;
+};
 
-// -------------------------------------------STEPPER--------------------------------------------------
-// AccelStepper Setup Steppername (type, StepPin, DirectionPin)
-extern AccelStepper motor;
+extern myAccelStepper motor;
 
 void initStepperRunner();
 
