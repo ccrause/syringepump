@@ -8,6 +8,8 @@
 #define ms3 26 //micro stepping all on for 16th step
 #define stepPin 25
 #define dirPin 33
+#define resetPin 34 // reset stepper controller by pulling low
+#define faultPin 39 // low indicate fault on stepper controller (over temperature, over current/short)
 
 #define dispenseButton 35 //cycle start button
 #define servo 13 // servo signal

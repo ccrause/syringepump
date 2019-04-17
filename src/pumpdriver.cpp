@@ -12,7 +12,7 @@ portMUX_TYPE counterMux = portMUX_INITIALIZER_UNLOCKED;
 boolean myAccelStepper::runSpeed(){
   if (AccelStepper::runSpeed()) {
     portENTER_CRITICAL_ISR(&counterMux);
-    uint16_t temp = motor.stepper_count++;
+    uint16_t temp = stepper_count++;
     portEXIT_CRITICAL_ISR(&counterMux);
     if (temp > maxPulseCount){
       trip = true;
@@ -28,12 +28,20 @@ void IRAM_ATTR encoderPulse() {
   portEXIT_CRITICAL_ISR(&counterMux);
 }
 
+void IRAM_ATTR faultHandler() {
+  motor.trip = true;
+  // if (debugPrint)
+  Serial.println("FAULT");
+  // Send serial data before exiting interrupt
+  delayMicroseconds(1000);
+}
+
 // runMotor task is thin for high frequency stepping
 // User output should be done in a separate task
 void runMotor(void *P){
   // Create motor stall clear interrupt
-  pinMode(encoderPin, INPUT);
   attachInterrupt(digitalPinToInterrupt(encoderPin), encoderPulse, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(faultPin), faultHandler, CHANGE);
 
   // Unsubscribe from TWDT so that long moves doesn't time-out
   esp_task_wdt_delete(NULL);
@@ -54,6 +62,21 @@ void runMotor(void *P){
 }
 
 void initStepperRunner(){
+  motor.setPinsInverted (false, false, false);
+  pinMode(ms1, OUTPUT); //micro step
+  pinMode(ms2, OUTPUT); //micro step
+  pinMode(ms3, OUTPUT); //micro step
+  pinMode(dirPin, OUTPUT); //stepper driver
+  pinMode(stepPin, OUTPUT ); //stepper driver
+  // DRV8825 1/16 microstep
+  digitalWrite (ms1, LOW);
+  digitalWrite (ms2, LOW);
+  digitalWrite (ms3, HIGH);
+  // Fault detection & handling pins
+  pinMode(resetPin, INPUT); // stepper driver reset, external pullup, pull down to reset
+  pinMode(faultPin, INPUT); // stepper driver fault, external pullup, low indicate fault
+  pinMode(encoderPin, INPUT);
+
   xTaskCreatePinnedToCore(
     &runMotor,            // function
     "runMotor",           // name

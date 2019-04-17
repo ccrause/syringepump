@@ -149,6 +149,8 @@ void nexTripAlert(){
 }
 
 void resetAll() {
+  pinMode(resetPin, OUTPUT);
+  digitalWrite(resetPin, LOW); // keep DRV8825 in reset until MCU has rebooted
   Serial.println("Software reset...");
   sendCommand("rest");
   delay(10);  // make sure command is transmitter over serial
@@ -711,22 +713,7 @@ void setup(){
   if(debugPrint) Serial.println("Loading config");
   loadConfig();
 
-  // pinMode(Bot, INPUT_PULLUP); //Limit Switch Connected to 0V
-  // pinMode(Top, INPUT_PULLUP); //Limit Switch Connected to 0V
   pinMode(dispenseButton, INPUT_PULLUP); //Switch Connected to 0V
-
-  motor.setPinsInverted (false, false, false);
-  pinMode(ms1, OUTPUT); //micro step
-  pinMode(ms2, OUTPUT); //micro step
-  pinMode(ms3, OUTPUT); //micro step
-  // pinMode(enable, OUTPUT); //stepper driver
-  pinMode(dirPin, OUTPUT); //stepper driver
-  pinMode(stepPin, OUTPUT ); //stepper driver
-  digitalWrite (ms1, HIGH);
-  digitalWrite (ms2, HIGH);
-  digitalWrite (ms3, HIGH);
-  // digitalWrite (enable, LOW); //enable stepper
-  delay(1);
 
   valve.attach(servo); //enable servo
   switchValve(vpOutlet);
