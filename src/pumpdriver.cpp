@@ -28,12 +28,15 @@ void IRAM_ATTR encoderPulse() {
   portEXIT_CRITICAL_ISR(&counterMux);
 }
 
+extern bool debugPrint;
+
 void IRAM_ATTR faultHandler() {
   motor.trip = true;
-  // if (debugPrint)
-  Serial.println("FAULT");
-  // Send serial data before exiting interrupt
-  delayMicroseconds(1000);
+  if (debugPrint){
+    Serial.println("FAULT");
+    // Send serial data before exiting interrupt
+    delayMicroseconds(1000);
+  }
 }
 
 // runMotor task is thin for high frequency stepping
