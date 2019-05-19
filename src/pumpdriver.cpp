@@ -6,7 +6,7 @@
 myAccelStepper motor(1, stepPin, dirPin);
 
 // Approximate pulse width in stepper pulses of the encoder
-#define maxPulseCount 96 // 800*8 / (20*2) * 1.1
+#define maxPulseCount 176 // 800*8 / (20*2) * 1.1
 portMUX_TYPE counterMux = portMUX_INITIALIZER_UNLOCKED;
 
 boolean myAccelStepper::runSpeed(){
@@ -76,8 +76,11 @@ void initStepperRunner(){
   digitalWrite (ms2, LOW);
   digitalWrite (ms3, HIGH);
   // Fault detection & handling pins
-  pinMode(resetPin, INPUT); // stepper driver reset, external pullup, pull down to reset
-  pinMode(faultPin, INPUT); // stepper driver fault, external pullup, low indicate fault
+  pinMode(resetPin, OUTPUT); // stepper driver reset, pull down to reset
+  pinMode(sleepPin, OUTPUT); // pull down to disable driver
+  pinMode(faultPin, INPUT); // stepper driver fault, low indicate fault
+  digitalWrite (resetPin, HIGH);
+  digitalWrite (sleepPin, HIGH);
   pinMode(encoderPin, INPUT);
 
   xTaskCreatePinnedToCore(
