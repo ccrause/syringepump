@@ -742,7 +742,7 @@ void setup(){
   if(debugPrint) Serial.println(msgZeroing);
 
   motor.setMinPulseWidth(4);
-  motor.setMaxSpeed(maxSpeed*stPmm/4);      // Set Max Speed of Stepper (Slower to get better accuracy)
+  motor.setMaxSpeed(maxSpeed*stPmm/10);      // Set Max Speed of Stepper (Slower to get better accuracy)
   motor.setAcceleration(maxSpeed*stPmm/8);  // Set Acceleration of Stepper
 
   // Plunger zeroing
