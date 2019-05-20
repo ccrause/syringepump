@@ -6,7 +6,7 @@
 myAccelStepper motor(1, stepPin, dirPin);
 
 // Approximate pulse width in stepper pulses of the encoder
-#define maxPulseCount 176 // 800*8 / (20*2) * 1.1
+#define maxPulseCount 200 // 800*8 / (20*2) * 1.1
 portMUX_TYPE counterMux = portMUX_INITIALIZER_UNLOCKED;
 
 boolean myAccelStepper::runSpeed(){
