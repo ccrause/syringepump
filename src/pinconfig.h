@@ -9,7 +9,7 @@
 #define resetPin 25 // reset stepper controller by pulling low
 #define sleepPin 33
 #define stepPin 32
-#define dirPin 35
+#define dirPin 21//35
 #define faultPin 34 // low indicate fault on stepper controller (over temperature, over current/short)
 
 #define dispenseButton 39 //cycle start button
