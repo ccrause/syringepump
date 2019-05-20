@@ -786,7 +786,7 @@ void loop() {
   // Then check serial for commands
   if(Serial.available()){
     char c = Serial.read();
-    if(containState(osBusy)) {
+    if(containState(osBusy) && !(('R' == c) || ('?' == c) || ('h' == c))) {
       Serial.printf("Busy, ignoring command %c\n", c);
     }
     else if(c == '?' || c == 'h'){
