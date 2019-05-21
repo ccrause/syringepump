@@ -96,12 +96,13 @@ NexText errMsg0 = NexText(0, 8, "t2"); //Error Display 28 Carracters max
 //Page 1 (Settings)
 NexButton homeButtonP1 = NexButton(1, 1, "b0"); // Home Page button update the values for the syringe by reading the vairious values
 NexText volumeSettingText = NexText(1, 2, "t0"); //Set Volume
-NexText diameterText = NexText(1, 3, "t1"); //Syringe Diameter mm Float
-NexText errMsg1 = NexText(1, 4, "t4"); //Error Display 28 Carracters max
-NexNumber speedNumber = NexNumber(1, 5, "n0"); // % of max speed
-NexNumber strokeNumber = NexNumber(1, 6, "n1"); //Stroke Length mm int
-NexNumber primeCyclesNumber = NexNumber(1, 8, "n2"); //Number of cycles to prime
-NexButton manualButtonP1 = NexButton(1, 9, "b1");
+NexText diameterText = NexText(1, 3, "t1"); //Syringe Diameter mm Float (removed from nextion)
+NexText errMsg1 = NexText(1, 4, "t4"); //Error Display 28 Carracters max (id now 3)
+NexNumber speedNumber = NexNumber(1, 5, "n0"); // % of max speed(id now 4)
+NexNumber strokeNumber = NexNumber(1, 6, "n1"); //Stroke Length mm int(changed to volume mL id now 5)
+NexNumber primeCyclesNumber = NexNumber(1, 8, "n2"); //Number of cycles to prime (id now 7)
+NexButton manualButtonP1 = NexButton(1, 9, "b1"); // Navigate to manual page (id now 8)
+NexNumber maxVolume = NexNumber(1, 6, "maxStroke"); //global vairable to limit stkokeNumber must be updated on startup
 
 //Page 2 (manual control)
 NexDSButton valvePosition1 = NexDSButton(2, 1, "bt0"); // Actual Valve Position 0=In 1=Out
@@ -113,6 +114,7 @@ NexButton settingsButtonP2 = NexButton(2, 6, "b3"); //Page1 not used in mcu
 NexProgressBar progressBar1 = NexProgressBar(2, 7, "j0"); //Syringe Slider 0=100% Full
 NexText errMsg2 = NexText(2, 8, "t0"); // Errror Diplay 15 caracters max
 NexText volumeTextP2 = NexText(2, 9, "t1"); //Current Syringe Volume
+
 
 //Page 3 (TRIP Screen
 NexButton resetSystemButton = NexButton(3, 1, "b0"); //Page1 not used in mcu
