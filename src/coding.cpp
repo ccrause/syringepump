@@ -12,7 +12,7 @@
 #include "AccelStepper.h"
 #include <Preferences.h>
 
-// AccelStepper motor(1, stepPin, dirPin);
+#include "espinfo.h"
 
 #define maxSpeed 40 // mm/s
 #define maxAcceleration maxSpeed / 2  // mm/s/s
@@ -801,6 +801,7 @@ void loop() {
       Serial.println("d : dispense");
       Serial.println("b : disable debug printing");
       Serial.println("B : enable debug printing");
+      Serial.println("i : show platform information");
       Serial.println("R : reset (use this to recover from a trip)");
     }
     else if(c == '0'){
@@ -834,6 +835,9 @@ void loop() {
     else if(c == 'B'){
       debugPrint = true;
       Serial.println("Debug messages on");
+    }
+    else if(c == 'i'){
+      Serial.print(info());
     }
     else if(c == 'R'){
       resetAll();
