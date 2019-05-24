@@ -13,22 +13,20 @@
 #include <Preferences.h>
 
 #include "espinfo.h"
+#include "syringelist.h"
 
 #define maxSpeed 40 // mm/s
 #define maxAcceleration maxSpeed / 2  // mm/s/s
-#define defaultStroke 90
 #define defaultSpeedPct 50
-#define defaultVolume 5.0
-#define defaultDiameter 20
-#define defaultPrimeCycles 2
+#define defaultDispenseVolume 5.0
+#define defaultPrimeVolume 20
+#define defaultPrimeCycles 1
 
 #define stPmm 800 //800; //steps per mm
-#define pi 3.14159265
 #define configNamespace "pumpSettings"
-#define configNameStroke "stroke"
 #define configNameSpeed "speed"
-#define configNameVolume "volume"
-#define configNameDiameter "diameter"
+#define configNameDispenseVolume "dispenseVolume"
+#define configNamePrimeVolume "primeVolume"
 #define configNamePrimeCycles "prime"
 
 // Common status strings
@@ -55,17 +53,20 @@ OpState currentState = osUnInitialized;
 #define containState(state) ((int)(currentState & state) == (int)state)
 
 //--------------------------------------------Variables-----------------------------------------------
-float stroke;   // max travel distance mm
+// Syringe specific data retrieved based on below setting
+syringeType syringe = st20;
+
+const float syringeVol = syringeInfo[syringe].vol;
+const long strokeLimitSteps = syringeInfo[syringe].stroke * stPmm;
+
+//float stroke;   // max travel distance mm
 uint32_t speedPct; // % maximum speed
 float dispenseVol, dispenseCycleVol, totalDispensedVol; // requested volume mL
+uint32_t primeVol, primeSteps;
 byte dispenseCycles;  // number of dispense cycles to dispense total volume
-long dispenseStroke = 0;  // stroke per dispense cycle
-float diameter;    // syringe diameter mm
+long dispenseSteps = 0;  // stroke per dispense cycle
 int32_t speed;    // Actual speed in mm/sec
 uint32_t primeCycles; //number of times the syringe cycles
-float syringeVol = 0;
-
-long strokePosLimit = defaultStroke * stPmm; // max stroke position in steps (default 100 mm)
 bool displayDispenseVolume = false;
 
 bool debugPrint = true;
@@ -94,15 +95,14 @@ NexText volumeText = NexText(0, 7, "t1"); //Current Syringe Volume
 NexText errMsg0 = NexText(0, 8, "t2"); //Error Display 28 Carracters max
 
 //Page 1 (Settings)
-NexButton homeButtonP1 = NexButton(1, 1, "b0"); // Home Page button update the values for the syringe by reading the vairious values
-NexText volumeSettingText = NexText(1, 2, "t0"); //Set Volume
-NexText diameterText = NexText(1, 3, "t1"); //Syringe Diameter mm Float (removed from nextion)
 NexText errMsg1 = NexText(1, 4, "t4"); //Error Display 28 Carracters max (id now 3)
-NexNumber speedNumber = NexNumber(1, 5, "n0"); // % of max speed(id now 4)
-NexNumber strokeNumber = NexNumber(1, 6, "n1"); //Stroke Length mm int(changed to volume mL id now 5)
-NexNumber primeCyclesNumber = NexNumber(1, 8, "n2"); //Number of cycles to prime (id now 7)
+NexText nexDispenseVol = NexText(1, 2, "t0"); //Set Volume
+NexNumber nexPrimeVol = NexNumber(1, 6, "n1"); //global vairable to limit stkokeNumber must be updated on startup
+NexNumber nexPrimeCycles = NexNumber(1, 8, "n2"); //Number of cycles to prime (id now 7)
+NexNumber nexSpeedPct = NexNumber(1, 5, "n0"); // % of max speed(id now 4)
 NexButton manualButtonP1 = NexButton(1, 9, "b1"); // Navigate to manual page (id now 8)
-NexNumber maxVolume = NexNumber(1, 6, "maxStroke"); //global vairable to limit stkokeNumber must be updated on startup
+NexButton homeButtonP1 = NexButton(1, 1, "b0"); // Home Page button update the values for the syringe by reading the vairious values
+NexNumber nexMaxVolLimit = NexNumber(1, 6, "maxStroke"); //global variable to limit stkokeNumber must be updated on startup
 
 //Page 2 (manual control)
 NexDSButton valvePosition1 = NexDSButton(2, 1, "bt0"); // Actual Valve Position 0=In 1=Out
@@ -114,7 +114,6 @@ NexButton settingsButtonP2 = NexButton(2, 6, "b3"); //Page1 not used in mcu
 NexProgressBar progressBar1 = NexProgressBar(2, 7, "j0"); //Syringe Slider 0=100% Full
 NexText errMsg2 = NexText(2, 8, "t0"); // Errror Diplay 15 caracters max
 NexText volumeTextP2 = NexText(2, 9, "t1"); //Current Syringe Volume
-
 
 //Page 3 (TRIP Screen
 NexButton resetSystemButton = NexButton(3, 1, "b0"); //Page1 not used in mcu
@@ -162,8 +161,8 @@ void resetAll() {
 
 void safeMoveTo(long newpos){
   // limit max travel to maximum allowed syringe stroke length
-  if(newpos > strokePosLimit){
-    newpos = strokePosLimit;
+  if(newpos > strokeLimitSteps){
+    newpos = strokeLimitSteps;
   }
 
   // Reset trip counter to prevent spurious trip when reversing direction
@@ -192,7 +191,7 @@ void safeMoveTo(long newpos){
                   motor.currentPosition(), motor.targetPosition(), motor.speed());
     // Update progress bar with plunger movement
     if(containState(osZeroed) && (nexSerial.availableForWrite() > 20)) {
-      float progress = (100.0f * (float)(strokePosLimit - motor.currentPosition())) / strokePosLimit;
+      float progress = (100.0f * (float)(strokeLimitSteps - motor.currentPosition())) / strokeLimitSteps;
       if(progress > 100){
         progress = 100;
       }
@@ -206,7 +205,7 @@ void safeMoveTo(long newpos){
 
       // update Volume display
       if(displayDispenseVolume){
-        progress = (100.0f * (float)(strokePosLimit - motor.currentPosition())) / dispenseStroke;
+        progress = (100.0f * (float)(strokeLimitSteps - motor.currentPosition())) / dispenseSteps;
         deltaVol = dispenseCycleVol * progress / 100.0f;
         dtostrf(totalDispensedVol + deltaVol, 5, 3, buffer);
         errMsg0.setText(buffer);
@@ -249,7 +248,7 @@ void safeRun(long newSpeed){
     vTaskDelay(100 / portTICK_PERIOD_MS);
     // Update progress bar with plunger movement
     if(containState(osZeroed) && (nexSerial.availableForWrite() > 20)) {
-      double progress = (100.0 * (float)(strokePosLimit - motor.currentPosition())) / strokePosLimit;
+      double progress = (100.0 * (float)(strokeLimitSteps - motor.currentPosition())) / strokeLimitSteps;
       if(progress > 100){
         progress = 100;
       }
@@ -332,7 +331,7 @@ void primeButtonPopCallBack(void *ptr){
     if(debugPrint) Serial.println("Syringe empty");
 
     switchValve(vpInlet);
-    safeMoveTo(strokePosLimit);
+    safeMoveTo(primeSteps);  //strokeLimitSteps);
     if(containState(osTripped)) return;
     if(debugPrint) Serial.println("Syringe Filled");
   }
@@ -415,10 +414,10 @@ void manualButtonPopCallBack(void *ptr) {
   excludeState(osSettings);
 }
 
-float getVolume(void) {
-  if(debugPrint) Serial.println("Get volume from Nextion");
+float getDispenseVolume(void) {
+  if(debugPrint) Serial.println("Get dispense volume from Nextion");
   memset(buffer, 0, sizeof(buffer));
-  if(!volumeSettingText.getText(buffer, sizeof(buffer))){
+  if(!nexDispenseVol.getText(buffer, sizeof(buffer))){
     Serial.println("Error reading volume.");
     return 0;
   }
@@ -429,30 +428,16 @@ float getVolume(void) {
   }
 }
 
-float getDiameter(void) {
-  if(debugPrint) Serial.println("Get diameter from Nextion");
-  memset(buffer, 0, sizeof(buffer));
-  if(!diameterText.getText(buffer, sizeof(buffer))){
-    Serial.println("Error reading diameter.");
-    return 0;
-  }
-  else{
-    float temp = atof(buffer);
-    if(debugPrint) Serial.printf("Diameter = %f\n", temp);
-    return temp;
-  }
-}
-
-uint32_t getStroke(void) {
-  if(debugPrint) Serial.println("Get stroke from Nextion");
+uint32_t getPrimeVolume(void) {
+  if(debugPrint) Serial.println("Get priming volume from Nextion");
 
   uint32_t temp = 0;
-  if(!strokeNumber.getValue(&temp)) {
-    Serial.println("Error reading stroke.");
+  if(!nexPrimeVol.getValue(&temp)) {
+    Serial.println("Error reading priming volume.");
     return 0;
   }
   else{
-    if(debugPrint) Serial.printf("Stroke = %d\n", temp);
+    if(debugPrint) Serial.printf("Priming volume = %d\n", temp);
     return temp;
   }
 }
@@ -461,7 +446,7 @@ uint32_t getSpeed(void) {
   if(debugPrint) Serial.println("Get speed% from Nextion");
 
   uint32_t temp = 0;
-  if(!speedNumber.getValue(&temp)) {
+  if(!nexSpeedPct.getValue(&temp)) {
     Serial.println("Error reading speed.");
     return 0;
   }
@@ -475,7 +460,7 @@ uint32_t getPrimeCycles(void) {
   if(debugPrint) Serial.println("Get prime cycles from Nextion");
 
   uint32_t temp = 0;
-  if(!primeCyclesNumber.getValue(&temp)) {
+  if(!nexPrimeCycles.getValue(&temp)) {
     Serial.println("Error reading prime cycles.");
     return 0;
   }
@@ -486,11 +471,10 @@ uint32_t getPrimeCycles(void) {
 }
 
 void updateDosingParams(){
-  if(debugPrint) Serial.printf("stroke: %dmm\n", (int)stroke);
-  strokePosLimit = stroke * stPmm;
-  if(debugPrint) Serial.printf("strokePosLimit: %ld\n", strokePosLimit);
+  primeSteps = primeVol / syringeVol * syringeInfo[syringe].stroke * stPmm;
+  if(debugPrint) Serial.printf("Prime steps: %ul\n", primeSteps);
 
-  float tmpProgress = (100.0f * (float)(strokePosLimit - motor.currentPosition())) / strokePosLimit;
+  float tmpProgress = (100.0f * (float)(strokeLimitSteps - motor.currentPosition())) / strokeLimitSteps;
   if(tmpProgress > 100) {tmpProgress = 100;}
   else if(tmpProgress < 0) {tmpProgress = 0;}
   progressBar0.setValue((uint32_t)tmpProgress);
@@ -500,10 +484,6 @@ void updateDosingParams(){
   motor.setMaxSpeed(speed * stPmm);
   motor.setAcceleration(speed * stPmm / 2);
 
-  float Ac = (diameter/10.0f);
-  Ac = Ac*Ac/4.0f*pi;  // in cm
-  if(debugPrint) Serial.printf("Ac: %.3f cm^2\n", Ac);
-  syringeVol = (float)stroke/10.0f * Ac;
   if(debugPrint) Serial.printf("Syringe volume: %.3f\n", syringeVol);
   dispenseCycles = round((dispenseVol/syringeVol) + 0.5f);
   dispenseCycleVol = dispenseVol / dispenseCycles;
@@ -513,34 +493,52 @@ void updateDosingParams(){
   dtostrf(tmpVol, 5, 3, buffer);
   volumeText.setText(buffer);
 
-  dispenseStroke = dispenseCycleVol / Ac * 10.0f * stPmm;  // cm3/cm2 * 10 => mm
-  if (dispenseStroke > strokePosLimit){
+  dispenseSteps = dispenseCycleVol / syringeVol * syringeInfo[syringe].stroke * stPmm;
+  if (dispenseSteps > strokeLimitSteps){
     Serial.println("Dosing volume exeeds stroke limit");
-    dispenseStroke = strokePosLimit;
+    dispenseSteps = strokeLimitSteps;
   }
-  if(debugPrint) Serial.printf("dispenseStroke = %ld\n", dispenseStroke);
+  if(debugPrint) Serial.printf("dispenseStroke = %ld\n", dispenseSteps);
 }
 
 void homeButtonPopCallBack(void *prt_){
-  // update syringe diameter, stroke lenght and speed by reading the value's from nextion hmi
-  delay(100); // hack to try and read stroke text, perhaps nextion is slow to copy & convert text from page1 to page0?
+  // update dispense volume, syringe volume, number of priming strokes and %speed by reading the values from nextion hmi
+
+  delay(100); // hack to try and read text, perhaps nextion is slow to copy & convert text from page1 to page0?
+
   excludeState(osSettings);
   excludeState(osManual);
   if(debugPrint) Serial.println("Reading settings from Nextion.");
-  uint32_t tmpStroke = getStroke();
-  uint32_t tmpSpeed = getSpeed();
-  float tmpDiameter = getDiameter();
-  float tmpVol = getVolume();
+
+  float tmpDispenseVol = getDispenseVolume();
+  uint32_t tmpPrimeVol = getPrimeVolume();
   uint32_t tmpPrimeCycles = getPrimeCycles();
+  uint32_t tmpSpeed = getSpeed();
 
   if(configStorage.begin(configNamespace, false)){  // RW mode
     if(debugPrint) Serial.println("Saving config");
 
-    if(tmpStroke != stroke) {
-      stroke = tmpStroke;
-      if(debugPrint) Serial.println("Saving stroke");
-      if(configStorage.putUShort(configNameStroke, stroke) == 0){
-        Serial.println("Error saving stroke");
+    if(tmpDispenseVol != dispenseVol) {
+      dispenseVol = tmpDispenseVol;
+      if(debugPrint) Serial.println("Saving dispense volume");
+      if(configStorage.putFloat(configNameDispenseVolume, dispenseVol) == 0){
+        Serial.println("Error saving dispense volume");
+      }
+    }
+
+    if(tmpPrimeVol != primeVol) {
+      primeVol = tmpPrimeVol;
+      if(debugPrint) Serial.println("Saving priming volume");
+      if(configStorage.putULong(configNamePrimeVolume, primeVol) == 0){
+        Serial.println("Error saving volume");
+      }
+    }
+
+    if(tmpPrimeCycles != primeCycles) {
+      primeCycles = tmpPrimeCycles;
+      if(debugPrint) Serial.println("Saving prime cycles");
+      if(configStorage.putUShort(configNamePrimeCycles, primeCycles) == 0){
+        Serial.println("Error saving prime cycles");
       }
     }
 
@@ -552,29 +550,6 @@ void homeButtonPopCallBack(void *prt_){
       }
     }
 
-    if(tmpVol != dispenseVol) {
-      dispenseVol = tmpVol;
-      if(debugPrint) Serial.println("Saving volume");
-      if(configStorage.putFloat(configNameVolume, dispenseVol) == 0){
-        Serial.println("Error saving volume");
-      }
-    }
-
-    if(tmpDiameter != diameter) {
-      diameter = tmpDiameter;
-      if(debugPrint) Serial.println("Saving diameter");
-      if(configStorage.putFloat(configNameDiameter, diameter) == 0){
-        Serial.println("Error saving diameter");
-      }
-    }
-
-    if(tmpPrimeCycles != primeCycles) {
-      primeCycles = tmpPrimeCycles;
-      if(debugPrint) Serial.println("Saving prime cycles");
-      if(configStorage.putUShort(configNamePrimeCycles, primeCycles) == 0){
-        Serial.println("Error saving prime cycles");
-      }
-    }
     configStorage.end();
   }
   else{
@@ -602,11 +577,11 @@ void dispense(){
   sendCommand("tsw 255, 0");  // disable touch events on screen
   statusText.setText(msgDispensing);
   Serial.println(msgDispensing);
-  // start dispense cycle from bottom position
-  if (motor.currentPosition() != strokePosLimit) {
+  // start dispense cycle from primed position
+  if (motor.currentPosition() != primeSteps) {
     switchValve(vpInlet);
     statusText.setText(msgFilling);
-    safeMoveTo(strokePosLimit);
+    safeMoveTo(strokeLimitSteps);
   }
   if(containState(osTripped)) return;  // do nothing if tripped
 
@@ -615,13 +590,13 @@ void dispense(){
     switchValve(vpOutlet);
     statusText.setText(msgDispensing);
     displayDispenseVolume = true;
-    safeMoveTo(motor.currentPosition() - dispenseStroke);
+    safeMoveTo(motor.currentPosition() - dispenseSteps);
     if(containState(osTripped)) return;  // do nothing if tripped
 
     displayDispenseVolume = false;
     switchValve(vpInlet);
     statusText.setText(msgFilling);
-    safeMoveTo(strokePosLimit);
+    safeMoveTo(primeSteps);
     if(containState(osTripped)) return;  // do nothing if tripped
   }
   excludeState(osBusy);
@@ -637,22 +612,20 @@ void loadConfig(){
   if(!configStorage.begin(configNamespace, true)){  // Read-only mode
     Serial.println("Error opening config for loading");
   }
-  stroke = configStorage.getUShort(configNameStroke, defaultStroke);
-  speedPct = configStorage.getUShort(configNameSpeed, defaultSpeedPct);
-  dispenseVol = configStorage.getFloat(configNameVolume, defaultVolume);
-  diameter = configStorage.getFloat(configNameDiameter, defaultDiameter);
+
+  dispenseVol = configStorage.getFloat(configNameDispenseVolume, defaultDispenseVolume);
+  primeVol = configStorage.getULong(configNamePrimeVolume, defaultPrimeVolume);
   primeCycles = configStorage.getUShort(configNamePrimeCycles, defaultPrimeCycles);
+  speedPct = configStorage.getUShort(configNameSpeed, defaultSpeedPct);
   configStorage.end();
   updateDosingParams();
 
   // Update display
-  strokeNumber.setValue(stroke);
-  speedNumber.setValue(speedPct);
   sprintf(buffer, "%.3f", dispenseVol);
-  volumeSettingText.setText(buffer);
-  sprintf(buffer, "%.3f", diameter);
-  diameterText.setText(buffer);
-  primeCyclesNumber.setValue(primeCycles);
+  nexDispenseVol.setText(buffer);
+  nexPrimeVol.setValue(primeVol);
+  nexPrimeCycles.setValue(primeCycles);
+  nexSpeedPct.setValue(speedPct);
 }
 
 bool checkZero(){
@@ -707,6 +680,10 @@ void setup(){
   Serial.begin(115200);
   if(debugPrint) delay(2000);  // delay startup to allow for serial monitor connection
   sendCommand("tsw 255,0"); // disable touch events of all components on screen
+
+  // Set Nextion variable used to limit user input
+  nexMaxVolLimit.setValue(syringeInfo[syringe].vol);
+
   includeState(osBusy);
   if(debugPrint) Serial.printf("Setup executing on core # %d\n", xPortGetCoreID());
 //  sendCommand("baud=4800");
