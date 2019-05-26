@@ -22,6 +22,10 @@ boolean myAccelStepper::runSpeed(){
   return false;
 }
 
+void myAccelStepper::reset(){
+  digitalWrite(resetPin, LOW);
+}
+
 void IRAM_ATTR encoderPulse() {
   portENTER_CRITICAL_ISR(&counterMux);
   motor.stepper_count = 0;
@@ -71,6 +75,7 @@ void initStepperRunner(){
   pinMode(ms3, OUTPUT); //micro step
   pinMode(dirPin, OUTPUT); //stepper driver
   pinMode(stepPin, OUTPUT ); //stepper driver
+  pinMode(motorEnablePin, OUTPUT);
   // DRV8825 1/16 microstep
   digitalWrite (ms1, LOW);
   digitalWrite (ms2, LOW);
@@ -79,8 +84,9 @@ void initStepperRunner(){
   pinMode(resetPin, OUTPUT); // stepper driver reset, pull down to reset
   pinMode(sleepPin, OUTPUT); // pull down to disable driver
   pinMode(faultPin, INPUT); // stepper driver fault, low indicate fault
-  digitalWrite (resetPin, HIGH);
-  digitalWrite (sleepPin, HIGH);
+  digitalWrite(resetPin, HIGH);
+  digitalWrite(sleepPin, HIGH);
+  digitalWrite(motorEnablePin, LOW);
   pinMode(encoderPin, INPUT);
 
   xTaskCreatePinnedToCore(

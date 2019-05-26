@@ -5,17 +5,16 @@
 #include "Nextion.h"
 #include "SPI.h"
 #include "SD.h"
-#include "AccelStepper.h"
 #include "pinconfig.h"
 #include "pumpdriver.h"
 #include "Servo.h"  // Uses ServoESP32 library.  In platformIO: http://platformio.org/lib/show/1739/ServoESP32
-#include "AccelStepper.h"
 #include <Preferences.h>
 
 #include "espinfo.h"
 #include "syringelist.h"
 #include "nextioninterface.h"
 #include "txtmessages.h"
+#include "pumpdriver.h"
 
 #define maxSpeed 40 // mm/s
 #define maxAcceleration maxSpeed / 2  // mm/s/s
@@ -155,6 +154,7 @@ void safeMoveTo(long newpos){
     if(containState(osZeroed)){
       includeState(osTripped);
       excludeState(osBusy);
+      motor.reset();
       nexTripAlert();
     }
   }
@@ -204,6 +204,7 @@ void safeRun(long newSpeed){
   if(motor.trip == true){
     includeState(osTripped);
     excludeState(osBusy);
+    motor.reset();
     nexTripAlert();
   }
 }
@@ -491,7 +492,10 @@ bool checkZero(){
   // 2. Move 10 mm down without tripping
   safeMoveTo(10 * stPmm);
   if(debugPrint) Serial.println("2. Moved down 10 mm.");
-  if(motor.trip) return false;  // do nothing if tripped
+  if(motor.trip) {
+    motor.reset();
+    return false;  // do nothing if tripped
+  }
 
   // 3. Move up until trip, set pos = -1 mm
   if(debugPrint) Serial.println("3. Move back up...");
@@ -514,7 +518,11 @@ bool checkZero(){
   // 4. Move to zero
   if(debugPrint) Serial.println("4. Move to 0");
   safeMoveTo(0);
-  if(motor.trip) return false;
+  if(motor.trip) {
+    motor.reset();
+    return false;
+  }
+
   includeState(osZeroed);
   excludeState(osBusy);
   return true;

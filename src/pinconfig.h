@@ -2,7 +2,7 @@
 #define __PINCONFIG_H__
 
 //--------------------------------------------Pins--------------------------------------------------
-#define enablePin 12 //enable= low
+#define motorEnablePin 12 //enable= low
 #define ms1 14 //micro stepping
 #define ms2 27 //micro stepping
 #define ms3 26 //micro stepping all on for 16th step

@@ -10,6 +10,7 @@ public:
      :AccelStepper(interface, pin1, pin2, pin3, pin4, enable){};
 
   boolean runSpeed();
+  void reset();
 
   volatile uint16_t stepper_count;
   volatile bool running;
