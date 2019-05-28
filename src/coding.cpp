@@ -15,6 +15,7 @@
 #include "nextioninterface.h"
 #include "txtmessages.h"
 #include "pumpdriver.h"
+#include "esp_ota.h"
 
 #define maxSpeed 40 // mm/s
 #define maxAcceleration maxSpeed / 2  // mm/s/s
@@ -61,7 +62,7 @@ int32_t speed;    // Actual speed in mm/sec
 uint32_t primeCycles; //number of times the syringe cycles
 bool displayDispenseVolume = false;
 
-bool debugPrint = true;
+bool debugPrint = false;
 
 // -------------------------------------------Servo----------------------------------------------------
 Servo valve;
@@ -474,7 +475,7 @@ void loadConfig(){
 bool checkZero(){
   excludeState(osZeroed);  // disable screen updates, enable zeroing  on trip
   excludeState(osBusy);
-  switchValve(in);
+  switchValve(vpInlet);
   includeState(osBusy);
   // 1. Move up until trip, set pos = -1 mm
   if(debugPrint) Serial.println("1.Move up...");
@@ -529,6 +530,8 @@ bool checkZero(){
 }
 
 void setup(){
+  pinMode(dispenseButton, INPUT_PULLUP); //Switch Connected to 0V
+
   nexInit(115200);
   Serial.begin(115200);
   if(debugPrint) delay(2000);  // delay startup to allow for serial monitor connection
@@ -538,6 +541,11 @@ void setup(){
   setNexMaxVolLimit(syringeInfo[syringe].vol);
   initNextionInterface();
 
+  if(digitalRead(dispenseButton) == LOW){
+    updateStatusTxt("OTA");
+    runOTA();  // perhaps stop checkZero and only wait for OTA updates...
+  }
+
   includeState(osBusy);
   if(debugPrint) Serial.printf("Setup executing on core # %d\n", xPortGetCoreID());
 //  sendCommand("baud=4800");
@@ -545,16 +553,13 @@ void setup(){
 //  nexSerial.begin(4800);
 
   initStepperRunner();
+
   if(debugPrint) Serial.println("Loading config");
   loadConfig();
 
-  pinMode(dispenseButton, INPUT_PULLUP); //Switch Connected to 0V
-
   valve.attach(servo); //enable servo
-  switchValve(vpOutlet);
 
   updateErrorTxt("Please wait    Setting Up"); //Top Line note spacing
-  //errMsg1.setText("Please Wait"); //P1 top line
   updateStatusTxt(msgZeroing); //Status
   updateVolumeTxt("-----"); // Volume
 
@@ -580,7 +585,6 @@ void setup(){
 
   Serial.println("Setup done");
   updateErrorTxt("Please prime   syringe"); //Top Line note spacing
-  //errMsg1.setText("Please prime"); //P1 top line
   updateStatusTxt(msgNotReady); //Status
 
   excludeState(osBusy);
