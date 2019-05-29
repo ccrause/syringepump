@@ -3,47 +3,6 @@
 
 #include "Nextion.h"
 
-/*extern NexPage mainPage;
-extern NexPage settingsPage;
-extern NexPage manualPage;
-extern NexPage tripPage;
-
-// Page 0 (Home)
-extern NexButton primeButton;
-extern NexButton emptyButton;
-extern NexButton settingsButtonP0;
-extern NexButton manualButtonP0;
-extern NexDSButton valvePosition0;
-extern NexProgressBar progressBar0;
-//extern NexText statusText;
-extern NexText volumeText;
-extern NexText errMsg0;
-
-//Page 1 (Settings)
-extern NexText errMsg1;
-extern NexText nexDispenseVol;
-extern NexNumber nexPrimeVol;
-extern NexNumber nexPrimeCycles;
-extern NexNumber nexSpeedPct;
-extern NexButton manualButtonP1;
-extern NexButton homeButtonP1;
-extern NexNumber nexMaxVolLimit;
-
-//Page 2 (manual control)
-extern NexDSButton valvePosition1;
-extern NexDSButton switchValveButton;
-extern NexButton upButton;
-extern NexButton downButton;
-extern NexButton homeButtonP2;
-extern NexButton settingsButtonP2;
-extern NexProgressBar progressBar1;
-extern NexText errMsg2;
-extern NexText volumeTextP2;
-
-//Page 3 (TRIP Screen)
-extern NexButton resetSystemButton;
-*/
-
 // Functional interface to Nextion GUI elements
 void processNexMessages();
 void updateStatusTxt(const char status[]);
