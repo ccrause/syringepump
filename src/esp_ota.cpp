@@ -1,5 +1,6 @@
 #include <ArduinoOTA.h>
 #include <WiFi.h>
+#include "nextioninterface.h"
 
 #define WIFISSID "syringePump"
 #define WIFIPassword "pmuPegnirys"
@@ -15,25 +16,31 @@ uint16_t waitDelay=500;
 bool startWiFi(void) {
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFISSID, WIFIPassword);
-  uint32_t now = millis();
+  WiFi.setHostname("update");
+  WiFi.config(IPAddress(192,168,4,127), IPAddress(192,168,4,1), IPAddress(255,255,255,0));
   Serial.printf("Connecting to AP %s\n", WIFISSID);
-  while ((WiFi.status() != WL_CONNECTED) || ((millis() - now) < 60000)) {
+  updateErrorTxt("Connecting to AP");
+  while ((WiFi.status() != WL_CONNECTED)) {
     yield();
     Serial.print(".");
     delay(waitDelay);
   }
-  if(WiFi.status() == WL_CONNECTED){
+  if(WiFi.status() == WL_CONNECTED) {
     Serial.printf("WiFi connected, IP: %s\n", WiFi.localIP().toString().c_str());
+    updateErrorTxt(WiFi.localIP().toString().c_str());
+    char buf[32];
+    snprintf(buf, sizeof(buf),"%s.local", WiFi.getHostname());
     return true;
   }
   else {
     Serial.println("Wifi connection failed.");
+    updateErrorTxt("Wifi not connected");
     WiFi.mode(WIFI_MODE_NULL);
     return false;
   }
 }
 
-void runOTA(){
+void runOTA() {
   if (!startWiFi()) return;
 
   ArduinoOTA.setPort(8266);
@@ -47,11 +54,10 @@ void runOTA(){
   Serial.printf("OTA service started. Hostname: %s\n", ArduinoOTA.getHostname().c_str());
   Serial.printf("Wifi status: %4X\n", WiFi.getStatusBits());
 
-  uint32_t now = millis();
-  while(millis() - now < 60000) {
+  while(1) {
     yield();
     delay(waitDelay);
-    Serial.printf(".");
+    Serial.printf("-");
     ArduinoOTA.handle();
   }
 }
@@ -77,6 +83,7 @@ void onEnd(void) {
 };
 
 void onError(ota_error_t error) {
+  updateErrorTxt("OTA error");
   Serial.printf("Error[%u]: ", error);
   if (error == OTA_AUTH_ERROR) {
     Serial.println("Auth Failed");
@@ -95,7 +102,10 @@ void onProgress(unsigned int progress, unsigned int total) {
   static uint8_t prevPctProgress = 0;
   uint8_t pctProgress = (progress * 100) / total;
   if(pctProgress > prevPctProgress){
-    Serial.printf("Progress: %u%%\n", pctProgress);
+    char buf[10];
+    snprintf(buf, sizeof(buf), "%u%%", pctProgress);
+    Serial.println(buf);
+    updateErrorTxt(buf);
     prevPctProgress = pctProgress;
   }
 };
