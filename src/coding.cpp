@@ -237,7 +237,7 @@ void switchValve(uint8_t pos) {
     updateValveDisplay(pos);
   }
   else if(debugPrint) Serial.printf("Invalid parameter passed to switchValve: %d", pos);
-  delay(250);
+  delay(500);
 }
 
 void prime(){
@@ -477,6 +477,7 @@ bool checkZero(){
   excludeState(osBusy);
   switchValve(vpInlet);
   includeState(osBusy);
+  displayDispenseVolume = false;
   // 1. Move up until trip, set pos = -1 mm
   if(debugPrint) Serial.println("1.Move up...");
   safeMoveTo(-100 * stPmm);
