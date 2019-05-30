@@ -237,7 +237,7 @@ void switchValve(uint8_t pos) {
     updateValveDisplay(pos);
   }
   else if(debugPrint) Serial.printf("Invalid parameter passed to switchValve: %d", pos);
-  delay(500);
+  delay(1000);
 }
 
 void prime(){
@@ -475,7 +475,7 @@ void loadConfig(){
 bool checkZero(){
   excludeState(osZeroed);  // disable screen updates, enable zeroing  on trip
   excludeState(osBusy);
-  switchValve(vpInlet);
+  switchValve(vpOutlet);
   includeState(osBusy);
   displayDispenseVolume = false;
   // 1. Move up until trip, set pos = -1 mm
@@ -492,7 +492,8 @@ bool checkZero(){
   }
 
   // 2. Move 10 mm down without tripping
-  safeMoveTo(10 * stPmm);
+  switchValve(vpInlet);
+  safeMoveTo(5 * stPmm);
   if(debugPrint) Serial.println("2. Moved down 10 mm.");
   if(motor.trip) {
     motor.reset();
@@ -500,6 +501,7 @@ bool checkZero(){
   }
 
   // 3. Move up until trip, set pos = -1 mm
+  switchValve(vpOutlet);
   if(debugPrint) Serial.println("3. Move back up...");
   safeMoveTo(-100 * stPmm);
   if(motor.trip){
@@ -518,6 +520,7 @@ bool checkZero(){
   }
 
   // 4. Move to zero
+  switchValve(vpInlet);
   if(debugPrint) Serial.println("4. Move to 0");
   safeMoveTo(0);
   if(motor.trip) {
