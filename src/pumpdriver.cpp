@@ -3,11 +3,19 @@
 #include "pinconfig.h"
 #include <esp_task_wdt.h>
 
-myAccelStepper motor(1, stepPin, dirPin);
+#include <TMCStepper.h>
+#include <SPI.h>
+
+myAccelStepper motor(myAccelStepper::DRIVER, stepPin, dirPin);
+TMC2130Stepper driver(TMC_CS);
 
 // Approximate pulse width in stepper pulses of the encoder
 #define maxPulseCount 220 // 800*8 / (20*2) * 1.1
 portMUX_TYPE counterMux = portMUX_INITIALIZER_UNLOCKED;
+
+void myAccelStepper::setCurrent(uint16_t mA){
+  driver.rms_current(mA);
+}
 
 boolean myAccelStepper::runSpeed(){
   if (AccelStepper::runSpeed()) {
@@ -23,7 +31,8 @@ boolean myAccelStepper::runSpeed(){
 }
 
 void myAccelStepper::reset(){
-  digitalWrite(resetPin, LOW);
+  digitalWrite(motorEnablePin, HIGH);
+  digitalWrite(TMC_VIO, LOW);
 }
 
 void IRAM_ATTR encoderPulse() {
@@ -34,10 +43,10 @@ void IRAM_ATTR encoderPulse() {
 
 extern bool debugPrint;
 
-void IRAM_ATTR faultHandler() {
+void IRAM_ATTR stallHandler() {
   motor.trip = true;
   if (debugPrint){
-    Serial.println("FAULT");
+    Serial.println("STALL");
     // Send serial data before exiting interrupt
     delayMicroseconds(1000);
   }
@@ -48,7 +57,7 @@ void IRAM_ATTR faultHandler() {
 void runMotor(void *P){
   // Create motor stall clear interrupt
   attachInterrupt(digitalPinToInterrupt(encoderPin), encoderPulse, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(faultPin), faultHandler, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(stallPin), stallHandler, RISING);
 
   // Unsubscribe from TWDT so that long moves doesn't time-out
   esp_task_wdt_delete(NULL);
@@ -69,25 +78,34 @@ void runMotor(void *P){
 }
 
 void initStepperRunner(){
-  motor.setPinsInverted (false, false, false);
-  pinMode(ms1, OUTPUT); //micro step
-  pinMode(ms2, OUTPUT); //micro step
-  pinMode(ms3, OUTPUT); //micro step
+  pinMode(motorEnablePin, OUTPUT);
   pinMode(dirPin, OUTPUT); //stepper driver
   pinMode(stepPin, OUTPUT ); //stepper driver
-  pinMode(motorEnablePin, OUTPUT);
-  // DRV8825 1/16 microstep
-  digitalWrite (ms1, LOW);
-  digitalWrite (ms2, LOW);
-  digitalWrite (ms3, HIGH);
-  // Fault detection & handling pins
-  pinMode(resetPin, OUTPUT); // stepper driver reset, pull down to reset
-  pinMode(sleepPin, OUTPUT); // pull down to disable driver
-  pinMode(faultPin, INPUT); // stepper driver fault, low indicate fault
-  digitalWrite(resetPin, HIGH);
-  digitalWrite(sleepPin, HIGH);
-  digitalWrite(motorEnablePin, LOW);
+  pinMode(TMC_VIO, OUTPUT);
+  pinMode(stallPin, INPUT);
   pinMode(encoderPin, INPUT);
+  digitalWrite(motorEnablePin, LOW);
+  digitalWrite(TMC_VIO, HIGH);
+
+  motor.setPinsInverted (false, false, false);
+
+  SPI.begin(TMC_SCK, TMC_SDI, TMC_SDO, TMC_CS);
+  driver.begin();             // Initiate pins and registeries
+  driver.en_pwm_mode(1);      // Enable extremely quiet stepping
+  driver.pwm_autoscale(1);
+  driver.toff(4);
+  driver.blank_time(24);
+  driver.rms_current(400); // 400mA
+  driver.microsteps(16);
+  driver.sfilt(true); // Improves TMC2660 SG readout
+  driver.TCOOLTHRS(0xFFFFF); // 20bit max
+  driver.THIGH(0);
+  driver.semin(5);
+  driver.semax(2);
+  driver.sedn(0b01);
+  driver.sgt(4);  // Stall sensitivity: more positive -> less sensitive
+  driver.diag1_stall(true);
+  driver.diag1_pushpull(true);
 
   xTaskCreatePinnedToCore(
     &runMotor,            // function

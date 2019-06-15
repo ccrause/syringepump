@@ -11,6 +11,7 @@ public:
 
   boolean runSpeed();
   void reset();
+  void setCurrent(uint16_t mA);
 
   volatile uint16_t stepper_count;
   volatile bool running;

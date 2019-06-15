@@ -2,16 +2,15 @@
 #define __PINCONFIG_H__
 
 //--------------------------------------------Pins--------------------------------------------------
-#define motorEnablePin 12 //enable= low
-#define ms1 14 //micro stepping
-#define ms2 27 //micro stepping
-#define ms3 26 //micro stepping all on for 16th step
-#define resetPin 25 // reset stepper controller by pulling low
-#define sleepPin 33
+#define motorEnablePin 12 // enable = low
+#define TMC_SDO 14
+#define TMC_SCK 27
+#define TMC_CS 26
+#define TMC_SDI 25
+#define stallPin 33 // TMC diag1 pin
 #define stepPin 32
-#define dirPin 21//35
-#define faultPin 34 // low indicate fault on stepper controller (over temperature, over current/short)
-
+#define dirPin 21
+#define TMC_VIO 22
 #define dispenseButton 39 //cycle start button
 #define servo 13 // servo signal
 #define encoderPin 36 // screw encoder

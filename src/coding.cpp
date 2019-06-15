@@ -62,7 +62,7 @@ int32_t speed;    // Actual speed in mm/sec
 uint32_t primeCycles; //number of times the syringe cycles
 bool displayDispenseVolume = false;
 
-bool debugPrint = false;
+bool debugPrint = true;
 
 // -------------------------------------------Servo----------------------------------------------------
 Servo valve;
@@ -80,8 +80,6 @@ void updateDosingParams();
 void processSerial();
 
 void resetAll() {
-  pinMode(resetPin, OUTPUT);
-  digitalWrite(resetPin, LOW); // keep DRV8825 in reset until MCU has rebooted
   Serial.println("Software reset...");
   nexReset();
   delay(10);  // make sure command is transmitter over serial
@@ -572,7 +570,7 @@ void setup(){
   motor.setMinPulseWidth(4);
   motor.setMaxSpeed(maxSpeed*stPmm/10);      // Set Max Speed of Stepper (Slower to get better accuracy)
   motor.setAcceleration(maxSpeed*stPmm/8);  // Set Acceleration of Stepper
-
+  motor.setCurrent(300);  // low current for zeroing
   // Plunger zeroing
   if(!checkZero()){
     Serial.println("Error finding zero");
@@ -586,6 +584,7 @@ void setup(){
   //reset motor settings after position update
   motor.setMaxSpeed(speed * stPmm);
   motor.setAcceleration(speed * stPmm / 2);
+  motor.setCurrent(600);  // higher current for operation
 
   Serial.println("Setup done");
   updateErrorTxt("Please prime   syringe"); //Top Line note spacing
