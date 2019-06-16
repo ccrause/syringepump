@@ -14,6 +14,7 @@ void onProgress(unsigned int progress, unsigned int total);
 uint16_t waitDelay=500;
 
 bool startWiFi(void) {
+  bool switchToX = false;
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFISSID, WIFIPassword);
   WiFi.setHostname("update");
@@ -22,7 +23,17 @@ bool startWiFi(void) {
   updateErrorTxt("Connecting to AP");
   while ((WiFi.status() != WL_CONNECTED)) {
     yield();
-    Serial.print(".");
+    if (switchToX == true) {
+      Serial.print("x");
+      updateStatusTxt("OTA x");
+      switchToX = false;
+    }
+    else {
+      Serial.print("+");
+      updateStatusTxt("OTA +");
+      switchToX = true;
+    }
+    processNexMessages();
     delay(waitDelay);
   }
   if(WiFi.status() == WL_CONNECTED) {
@@ -54,10 +65,21 @@ void runOTA() {
   Serial.printf("OTA service started. Hostname: %s\n", ArduinoOTA.getHostname().c_str());
   Serial.printf("Wifi status: %4X\n", WiFi.getStatusBits());
 
+  bool switchToX = false;
   while(1) {
     yield();
     delay(waitDelay);
-    Serial.printf("-");
+    if (switchToX == true) {
+      Serial.print("x");
+      updateStatusTxt("OTA x");
+      switchToX = false;
+    }
+    else {
+      Serial.print("+");
+      updateStatusTxt("OTA +");
+      switchToX = true;
+    }
+    processNexMessages();
     ArduinoOTA.handle();
   }
 }
