@@ -17,7 +17,7 @@
 #include "pumpdriver.h"
 #include "esp_ota.h"
 
-#define maxSpeed 40 // mm/s
+#define maxSpeed 10 // mm/s
 #define maxAcceleration maxSpeed / 2  // mm/s/s
 #define defaultSpeedPct 50
 #define defaultDispenseVolume 5.0
@@ -62,7 +62,8 @@ int32_t speed;    // Actual speed in mm/sec
 uint32_t primeCycles; //number of times the syringe cycles
 bool displayDispenseVolume = false;
 
-bool debugPrint = true;
+bool debugPrint = false;
+bool debugTMC = true;
 
 // -------------------------------------------Servo----------------------------------------------------
 Servo valve;
@@ -108,6 +109,16 @@ void safeMoveToUpdateDisplay(float* deltaVolume){
   }
 }
 
+#define R_SENSE 0.11
+#define CS_ACTUAL_bm (1 << 20 | 1 << 19 | 1 << 18 | 1 << 17 | 1 << 16)
+#define CS_ACTUAL_bp 16
+#define SG_RESULT_bm (1 << 9 | 1 << 8 | 1 << 7 | 1 << 6 | 1 << 5 | 1 << 4 | 1 << 3 | 1 << 2 | 1 << 1 | 1 << 0)
+#define SG_RESULT_bp 0
+uint16_t rms_current(uint8_t CS) {
+  return (float)(CS+1)/32.0 * (0.180)/(R_SENSE+0.02) / 1.41421 * 1000;
+}
+
+
 void safeMoveTo(long newpos){
   // limit max travel to maximum allowed syringe stroke length
   if(newpos > strokeLimitSteps){
@@ -132,15 +143,29 @@ void safeMoveTo(long newpos){
   motor.running = true;
   float deltaVol = 0;
 
+  if(debugTMC){
+    Serial.printf("SGT = %d\n", driver.sgt());
+    Serial.println("SG    | Current|  Speed |  TSTEP");
+  }
+
   // Wait until move is finished
   while(motor.running && (motor.trip == false)){
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    vTaskDelay(50 / portTICK_PERIOD_MS);
 
     if(debugPrint) Serial.printf("curPos: %ld\ntargetPos: %ld\nspeed: %0.2f\n",
                   motor.currentPosition(), motor.targetPosition(), motor.speed());
     // Update progress bar with plunger movement
-    if(containState(osZeroed) && (nexSerial.availableForWrite() > 20)) {
+    if(containState(osZeroed) && (nexSerial.availableForWrite() > 50)) {
       safeMoveToUpdateDisplay(&deltaVol);
+    }
+
+    if(debugTMC){
+      uint32_t drv_status = driver.DRV_STATUS();
+      // Split out stallGuard value
+      Serial.printf("%.4d  |  ", (drv_status & SG_RESULT_bm)>>SG_RESULT_bp);
+      Serial.printf("%.4d  |  ", rms_current((drv_status & CS_ACTUAL_bm)>>CS_ACTUAL_bp));
+      Serial.printf("%.4d  |  ", (int) motor.speed());
+      Serial.printf("%.4d\n", driver.TSTEP());
     }
   }
   safeMoveToUpdateDisplay(&deltaVol);
@@ -174,12 +199,26 @@ void safeRun(long newSpeed){
   motor.moveToPosition = false;
   motor.running = true;
 
+  if(debugTMC){
+    Serial.printf("SGT = %d\n", driver.sgt());
+    Serial.println("SG    | Current|  Speed | TSTEP");
+  }
+
   // Wait until move is stopped from pop event
   while(motor.running && (motor.trip == false)){
     processNexMessages();
     processSerial();  // in case a serial stop command is sent
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    vTaskDelay(50 / portTICK_PERIOD_MS);
     // Update progress bar with plunger movement
+    if(debugTMC){
+      uint32_t drv_status = driver.DRV_STATUS();
+      // Split out stallGuard value
+      Serial.printf("%.4d  |  ", (drv_status & SG_RESULT_bm)>>SG_RESULT_bp);
+      Serial.printf("%.4d  |  ", rms_current((drv_status & CS_ACTUAL_bm)>>CS_ACTUAL_bp));
+      Serial.printf("%.4d  |  ", (int) motor.speed());
+      Serial.printf("%.4d\n", driver.TSTEP());
+    }
+
     if(containState(osZeroed) && (nexSerial.availableForWrite() > 20)) {
       double progress = (100.0 * (float)(strokeLimitSteps - motor.currentPosition())) / strokeLimitSteps;
       if(progress > 100){
@@ -217,7 +256,7 @@ boolean passPreconditions(uint8_t prohibitedStates, uint8_t requiredStates, cons
 
   if(!result){
     Serial.printf("Precondition check failed in %s\n", context);
-    if(debugPrint) Serial.printf("currentState=%#.2x prohibitedstates=%#.2x requiredstates=%#.2x\n", currentState, prohibitedStates, requiredStates);
+    Serial.printf("currentState=%#.2x prohibitedstates=%#.2x requiredstates=%#.2x\n", currentState, prohibitedStates, requiredStates);
   }
   return result;
 }
@@ -243,6 +282,7 @@ void prime(){
     return;
   }
   includeState(osBusy);
+  nexDisableScreen();
   Serial.println(msgPriming);
 
   updateErrorTxt("Please Wait");
@@ -269,6 +309,7 @@ void prime(){
   updateErrorTxt(" ");
   updateStatusTxt(msgReady);
   Serial.println(msgReady);
+  nexEnableScreen();
   // Empty Serial input buffer
   while(Serial.available()) Serial.read();
 }
@@ -415,7 +456,7 @@ void dispense(){
     }
     return;
   }
-  sendCommand("tsw 255, 0");  // disable touch events on screen
+  nexDisableScreen();
   updateStatusTxt(msgDispensing);
   Serial.println(msgDispensing);
   // start dispense cycle from primed position
@@ -448,7 +489,7 @@ void dispense(){
   excludeState(osBusy);
   updateStatusTxt(msgReady);
   Serial.println(msgReady);
-  sendCommand("tsw 255, 1");  // enable touch events on screen
+  nexEnableScreen();
   // Empty Serial input buffer
   while(Serial.available()) Serial.read();
 }
@@ -474,7 +515,7 @@ bool checkZero(){
   excludeState(osZeroed);  // disable screen updates, enable zeroing  on trip
   excludeState(osBusy);
   switchValve(vpOutlet);
-  includeState(osBusy);
+  //includeState(osBusy);
   displayDispenseVolume = false;
   // 1. Move up until trip, set pos = -1 mm
   if(debugPrint) Serial.println("1.Move up...");
@@ -537,7 +578,7 @@ void setup(){
   nexInit(115200);
   Serial.begin(115200);
   if(debugPrint) delay(2000);  // delay startup to allow for serial monitor connection
-  sendCommand("tsw 255,0"); // disable touch events of all components on screen
+  nexDisableScreen();
 
   // Set Nextion variable used to limit user input
   setNexMaxVolLimit(syringeInfo[syringe].vol);
@@ -567,10 +608,9 @@ void setup(){
 
   if(debugPrint) Serial.println(msgZeroing);
 
-  motor.setMinPulseWidth(4);
-  motor.setMaxSpeed(maxSpeed*stPmm/10);      // Set Max Speed of Stepper (Slower to get better accuracy)
-  motor.setAcceleration(maxSpeed*stPmm/8);  // Set Acceleration of Stepper
-  motor.setCurrent(300);  // low current for zeroing
+  motor.setMaxSpeed(maxSpeed*stPmm/5);      // Set Max Speed of Stepper (Slower to get better accuracy)
+  motor.setAcceleration(maxSpeed*stPmm/10);  // Set Acceleration of Stepper
+//  motor.setCurrent(400);  // low current for zeroing
   // Plunger zeroing
   if(!checkZero()){
     Serial.println("Error finding zero");
@@ -584,14 +624,14 @@ void setup(){
   //reset motor settings after position update
   motor.setMaxSpeed(speed * stPmm);
   motor.setAcceleration(speed * stPmm / 2);
-  motor.setCurrent(600);  // higher current for operation
+//  motor.setCurrent(800);  // higher current for operation
 
   Serial.println("Setup done");
   updateErrorTxt("Please prime   syringe"); //Top Line note spacing
   updateStatusTxt(msgNotReady); //Status
 
   excludeState(osBusy);
-  sendCommand("tsw 255,1"); // enable all touch events
+  nexEnableScreen();
   if(debugPrint) {
     Serial.println("Debug messages on");
   }
@@ -625,6 +665,8 @@ void processSerial(){
       Serial.println("i : show platform information");
       Serial.println("p : prime");
       Serial.println("R : reset (use this to recover from a trip)");
+      Serial.println("s xxx : Set stallGuard value to xxx");
+      Serial.println("z : Zero");
     }
     else if(c == '/'){
       if(motor.running && !motor.moveToPosition){
@@ -670,6 +712,37 @@ void processSerial(){
     }
     else if(c == 'R'){
       resetAll();
+    }
+    else if(c == 's'){
+      char buf[30];
+      uint8_t i = 0;
+      int val;
+      c = Serial.read();
+      while((c != '\n') && (c != '\r') && (i < 29)){
+        if(c != ' ') {
+          buf[i] = c;
+          i++;
+        }
+        c = Serial.read();
+      }
+      buf[i] = 0;
+      Serial.printf("Read SG: %s\n", buf);
+      val = atoi(buf);
+      driver.sgt(val);
+    }
+    else if(c == 'z'){
+      motor.setMaxSpeed(maxSpeed*stPmm/5);      // Set Max Speed of Stepper (Slower to get better accuracy)
+      motor.setAcceleration(maxSpeed*stPmm/10);  // Set Acceleration of Stepper
+      if(!checkZero()){
+        Serial.println("Error finding zero");
+        nexTripAlert();
+      };
+      updateProgressbar0(100); //show slider value as zero
+      updateProgressbar2(100); //Progress bar empty P1
+      Serial.println("Homing Completed");
+
+      motor.setMaxSpeed(speed * stPmm);
+      motor.setAcceleration(speed * stPmm / 2);
     }
   }
 }

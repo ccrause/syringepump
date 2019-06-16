@@ -2,6 +2,7 @@
 #define __PUMPDRIVER_H__
 
 #include "AccelStepper.h"
+#include <TMCStepper.h>
 
 class myAccelStepper: public AccelStepper{
 public:
@@ -20,6 +21,7 @@ public:
 };
 
 extern myAccelStepper motor;
+extern TMC2130Stepper driver;
 
 void initStepperRunner();
 

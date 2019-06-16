@@ -24,6 +24,9 @@ boolean myAccelStepper::runSpeed(){
     portEXIT_CRITICAL_ISR(&counterMux);
     if (temp > maxPulseCount){
       trip = true;
+      Serial.println("#");
+      // Send serial data before exiting interrupt
+      delayMicroseconds(500);
     }
     return true;
   }
@@ -45,11 +48,11 @@ extern bool debugPrint;
 
 void IRAM_ATTR stallHandler() {
   motor.trip = true;
-  if (debugPrint){
+  //if (debugTMC){
     Serial.println("STALL");
     // Send serial data before exiting interrupt
     delayMicroseconds(1000);
-  }
+  //}
 }
 
 // runMotor task is thin for high frequency stepping
@@ -82,28 +85,36 @@ void initStepperRunner(){
   pinMode(dirPin, OUTPUT); //stepper driver
   pinMode(stepPin, OUTPUT ); //stepper driver
   pinMode(TMC_VIO, OUTPUT);
-  pinMode(stallPin, INPUT);
+  pinMode(stallPin, INPUT_PULLDOWN);
   pinMode(encoderPin, INPUT);
   digitalWrite(motorEnablePin, LOW);
   digitalWrite(TMC_VIO, HIGH);
 
-  motor.setPinsInverted (false, false, false);
+  motor.setPinsInverted (true, false, false);
+  motor.setMinPulseWidth(4);
 
   SPI.begin(TMC_SCK, TMC_SDI, TMC_SDO, TMC_CS);
   driver.begin();             // Initiate pins and registeries
   driver.en_pwm_mode(1);      // Enable extremely quiet stepping
   driver.pwm_autoscale(1);
+  driver.pwm_grad(8);
   driver.toff(4);
   driver.blank_time(24);
   driver.rms_current(400); // 400mA
   driver.microsteps(16);
-  driver.sfilt(true); // Improves TMC2660 SG readout
+
   driver.TCOOLTHRS(0xFFFFF); // 20bit max
   driver.THIGH(0);
-  driver.semin(5);
-  driver.semax(2);
-  driver.sedn(0b01);
-  driver.sgt(4);  // Stall sensitivity: more positive -> less sensitive
+
+  // Current control, 5.5.3, p. 36
+  driver.sfilt(false);           // Filter SG readout
+  driver.sgt(20);               // Stall sensitivity: more positive -> less sensitive
+  driver.seimin(0);             // 0=1/4, 1=1/2 of current setting
+  driver.sedn(1);               // Current down step speed (0 = 32 SG values before down)
+  driver.semax(2); //4             // Decrease current if SG value above (semin+semax)*32
+  driver.seup(2);               // Current increment steps
+  driver.semin(16);             // Increase current if SG value below semin*32
+
   driver.diag1_stall(true);
   driver.diag1_pushpull(true);
 
