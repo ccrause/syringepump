@@ -21,4 +21,7 @@ void initNextionInterface();
 void nexTripAlert();
 void nexReset();
 
+void nexDisableScreen();
+void nexEnableScreen();
+
 #endif // _NEXTIONINTERFACE_
