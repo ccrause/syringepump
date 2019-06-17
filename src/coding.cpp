@@ -17,20 +17,16 @@
 #include "pumpdriver.h"
 #include "esp_ota.h"
 
-#define maxSpeed 10 // mm/s
-#define maxAcceleration maxSpeed / 2  // mm/s/s
 #define defaultSpeedPct 50
 #define defaultDispenseVolume 5.0
 #define defaultPrimeVolume 20
 #define defaultPrimeCycles 1
 
-#define stPmm 800 //800; //steps per mm
 #define configNamespace "pumpSettings"
 #define configNameSpeed "speed"
 #define configNameDispenseVolume "dispenseVolume"
 #define configNamePrimeVolume "primeVolume"
 #define configNamePrimeCycles "prime"
-
 
 enum OpState {osUnInitialized=0,  // startup state
               osZeroed=1,         // zeroing completed
@@ -58,7 +54,6 @@ float dispenseVol, dispenseCycleVol, totalDispensedVol; // requested volume mL
 uint32_t primeVol, primeSteps;
 byte dispenseCycles;  // number of dispense cycles to dispense total volume
 long dispenseSteps = 0;  // stroke per dispense cycle
-int32_t speed;    // Actual speed in mm/sec
 uint32_t primeCycles; //number of times the syringe cycles
 bool displayDispenseVolume = false;
 
@@ -144,7 +139,7 @@ void safeMoveTo(long newpos){
   float deltaVol = 0;
 
   if(debugTMC){
-    Serial.printf("SGT = %d\n", driver.sgt());
+    Serial.printf("SGT = %d, Accel = %d\n", driver.sgt(), motor.getAcceleration());
     Serial.println("SG    | Current|  Speed |  TSTEP");
   }
 
@@ -159,7 +154,7 @@ void safeMoveTo(long newpos){
       safeMoveToUpdateDisplay(&deltaVol);
     }
 
-    if(debugTMC){
+    if(debugTMC && (Serial.availableForWrite() > 40)){
       uint32_t drv_status = driver.DRV_STATUS();
       // Split out stallGuard value
       Serial.printf("%.4d  |  ", (drv_status & SG_RESULT_bm)>>SG_RESULT_bp);
@@ -190,12 +185,9 @@ void safeMoveTo(long newpos){
   }
 }
 
-void safeRun(long newSpeed){
-  if(debugPrint) Serial.printf("New speed: %ld\n", newSpeed);
-
+void safeRun(){
   // Reset trip counter to prevent spurious trip when reversing direction
   motor.stepper_count = 0;
-  motor.setSpeed(newSpeed);
   motor.moveToPosition = false;
   motor.running = true;
 
@@ -210,7 +202,7 @@ void safeRun(long newSpeed){
     processSerial();  // in case a serial stop command is sent
     vTaskDelay(50 / portTICK_PERIOD_MS);
     // Update progress bar with plunger movement
-    if(debugTMC){
+    if(debugTMC && (Serial.availableForWrite() > 40)){
       uint32_t drv_status = driver.DRV_STATUS();
       // Split out stallGuard value
       Serial.printf("%.4d  |  ", (drv_status & SG_RESULT_bm)>>SG_RESULT_bp);
@@ -323,10 +315,9 @@ void updateDosingParams(){
   else if(tmpProgress < 0) {tmpProgress = 0;}
   updateProgressbar0((uint32_t)tmpProgress);
 
-  speed = (maxSpeed * speedPct) / 100.0f;
-  if(debugPrint) Serial.printf("Speed = %d mm/s\n", speed);
-  motor.setMaxSpeed(speed * stPmm);
-  motor.setAcceleration(speed * stPmm / 2);
+  motor.speed_mm_s = (_maxSpeed * speedPct) / 100.0f;
+  if(debugPrint) Serial.printf("Speed = %d mm/s\n", motor.speed_mm_s);
+  motor.highSpeedSettings();
 
   if(debugPrint) Serial.printf("Syringe volume: %.3f\n", syringeVol);
   dispenseCycles = round((dispenseVol/syringeVol) + 0.5f);
@@ -417,7 +408,9 @@ void moveUp(){
     return;
   }
   includeState(osBusy);
-  safeRun(-speed*stPmm / 8);
+  motor.lowSpeedSettings();
+  motor.setSpeed(-motor.maxSpeed());
+  safeRun();//-speed*stPmm / 8);
 }
 
 void moveDown(){
@@ -426,7 +419,9 @@ void moveDown(){
     return;
   }
   includeState(osBusy);
-  safeRun(speed*stPmm / 8);
+  motor.lowSpeedSettings();
+  motor.setSpeed(motor.maxSpeed());
+  safeRun();//speed*stPmm / 8);
 }
 
 void stopMove(){
@@ -515,7 +510,6 @@ bool checkZero(){
   excludeState(osZeroed);  // disable screen updates, enable zeroing  on trip
   excludeState(osBusy);
   switchValve(vpOutlet);
-  //includeState(osBusy);
   displayDispenseVolume = false;
   // 1. Move up until trip, set pos = -1 mm
   if(debugPrint) Serial.println("1.Move up...");
@@ -533,7 +527,7 @@ bool checkZero(){
   // 2. Move 10 mm down without tripping
   switchValve(vpInlet);
   safeMoveTo(5 * stPmm);
-  if(debugPrint) Serial.println("2. Moved down 10 mm.");
+  if(debugPrint) Serial.println("2. Moved down 5 mm.");
   if(motor.trip) {
     motor.reset();
     return false;  // do nothing if tripped
@@ -608,9 +602,7 @@ void setup(){
 
   if(debugPrint) Serial.println(msgZeroing);
 
-  motor.setMaxSpeed(maxSpeed*stPmm/5);      // Set Max Speed of Stepper (Slower to get better accuracy)
-  motor.setAcceleration(maxSpeed*stPmm/10);  // Set Acceleration of Stepper
-//  motor.setCurrent(400);  // low current for zeroing
+  motor.lowSpeedSettings();
   // Plunger zeroing
   if(!checkZero()){
     Serial.println("Error finding zero");
@@ -622,10 +614,7 @@ void setup(){
   Serial.println("Homing Completed");
 
   //reset motor settings after position update
-  motor.setMaxSpeed(speed * stPmm);
-  motor.setAcceleration(speed * stPmm / 2);
-//  motor.setCurrent(800);  // higher current for operation
-
+  motor.highSpeedSettings();
   Serial.println("Setup done");
   updateErrorTxt("Please prime   syringe"); //Top Line note spacing
   updateStatusTxt(msgNotReady); //Status
@@ -662,10 +651,12 @@ void processSerial(){
       Serial.println("B : enable debug printing");
       Serial.println("d : dispense");
       Serial.println("e : empty");
+      Serial.println("h xxx : Set high speed SGT");
       Serial.println("i : show platform information");
+      Serial.println("l xxx : Set low speed SGT");
       Serial.println("p : prime");
       Serial.println("R : reset (use this to recover from a trip)");
-      Serial.println("s xxx : Set stallGuard value to xxx");
+      Serial.println("r : clear trip (no reboot, testing only)");
       Serial.println("z : Zero");
     }
     else if(c == '/'){
@@ -713,7 +704,15 @@ void processSerial(){
     else if(c == 'R'){
       resetAll();
     }
-    else if(c == 's'){
+    else if(c == 'r'){
+      digitalWrite(motorEnablePin, LOW);
+      digitalWrite(TMC_VIO, HIGH);
+      motor.running = false;
+      currentState = osUnInitialized;
+      sendCommand("page 0");
+      includeState(osZeroed);
+    }
+    else if(c == 'h'){
       char buf[30];
       uint8_t i = 0;
       int val;
@@ -726,13 +725,29 @@ void processSerial(){
         c = Serial.read();
       }
       buf[i] = 0;
-      Serial.printf("Read SG: %s\n", buf);
+      Serial.printf("Read hSG: %s\n", buf);
       val = atoi(buf);
-      driver.sgt(val);
+      motor.hSG = val;
+    }
+    else if(c == 'l'){
+      char buf[30];
+      uint8_t i = 0;
+      int val;
+      c = Serial.read();
+      while((c != '\n') && (c != '\r') && (i < 29)){
+        if(c != ' ') {
+          buf[i] = c;
+          i++;
+        }
+        c = Serial.read();
+      }
+      buf[i] = 0;
+      Serial.printf("Read lSG: %s\n", buf);
+      val = atoi(buf);
+      motor.lSG = val;
     }
     else if(c == 'z'){
-      motor.setMaxSpeed(maxSpeed*stPmm/5);      // Set Max Speed of Stepper (Slower to get better accuracy)
-      motor.setAcceleration(maxSpeed*stPmm/10);  // Set Acceleration of Stepper
+      motor.lowSpeedSettings();
       if(!checkZero()){
         Serial.println("Error finding zero");
         nexTripAlert();
@@ -741,8 +756,7 @@ void processSerial(){
       updateProgressbar2(100); //Progress bar empty P1
       Serial.println("Homing Completed");
 
-      motor.setMaxSpeed(speed * stPmm);
-      motor.setAcceleration(speed * stPmm / 2);
+      motor.highSpeedSettings();
     }
   }
 }

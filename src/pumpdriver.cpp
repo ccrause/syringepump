@@ -5,17 +5,17 @@
 
 #include <TMCStepper.h>
 #include <SPI.h>
+#include "syringelist.h"
+#include "coding.h"
 
 myAccelStepper motor(myAccelStepper::DRIVER, stepPin, dirPin);
 TMC2130Stepper driver(TMC_CS);
 
+//int32_t speed;    // Actual speed in mm/sec
+
 // Approximate pulse width in stepper pulses of the encoder
 #define maxPulseCount 220 // 800*8 / (20*2) * 1.1
 portMUX_TYPE counterMux = portMUX_INITIALIZER_UNLOCKED;
-
-void myAccelStepper::setCurrent(uint16_t mA){
-  driver.rms_current(mA);
-}
 
 boolean myAccelStepper::runSpeed(){
   if (AccelStepper::runSpeed()) {
@@ -36,6 +36,24 @@ boolean myAccelStepper::runSpeed(){
 void myAccelStepper::reset(){
   digitalWrite(motorEnablePin, HIGH);
   digitalWrite(TMC_VIO, LOW);
+}
+
+float myAccelStepper::getAcceleration(){
+  return _acceleration;
+}
+
+void myAccelStepper::lowSpeedSettings(){
+  AccelStepper::setMaxSpeed(_maxSpeed * stPmm/5);      // Set Max Speed of Stepper (Slower to get better accuracy)
+  AccelStepper::setAcceleration(accelRamp);//maxSpeed*stPmm/10);  // Set Acceleration of Stepper
+  driver.sgt(this->lSG);
+  driver.rms_current(syringeInfo[syringe].lowSpeedCurrent);
+}
+
+void myAccelStepper::highSpeedSettings(){
+  AccelStepper::setMaxSpeed(speed_mm_s * stPmm);      // Set Max Speed of Stepper (Slower to get better accuracy)
+  AccelStepper::setAcceleration(accelRamp);//maxSpeed*stPmm/10);  // Set Acceleration of Stepper
+  driver.sgt(this->hSG);
+  driver.rms_current(syringeInfo[syringe].highSpeedCurrent);
 }
 
 void IRAM_ATTR encoderPulse() {
@@ -92,6 +110,8 @@ void initStepperRunner(){
 
   motor.setPinsInverted (true, false, false);
   motor.setMinPulseWidth(4);
+  motor.lSG = syringeInfo[syringe].lowSpeedSGT;
+  motor.hSG = syringeInfo[syringe].highSpeedSGT;
 
   SPI.begin(TMC_SCK, TMC_SDI, TMC_SDO, TMC_CS);
   driver.begin();             // Initiate pins and registeries
@@ -107,8 +127,8 @@ void initStepperRunner(){
   driver.THIGH(0);
 
   // Current control, 5.5.3, p. 36
-  driver.sfilt(false);           // Filter SG readout
-  driver.sgt(20);               // Stall sensitivity: more positive -> less sensitive
+  driver.sfilt(true);           // Filter SG readout
+  driver.sgt(motor.lSG);        // Stall sensitivity: more positive -> less sensitive
   driver.seimin(0);             // 0=1/4, 1=1/2 of current setting
   driver.sedn(1);               // Current down step speed (0 = 32 SG values before down)
   driver.semax(2); //4             // Decrease current if SG value above (semin+semax)*32
