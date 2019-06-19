@@ -271,10 +271,11 @@ uint32_t getPrimeCycles(void) {
 }
 
 void nexDisableScreen(){
-  sendCommand("tsw 255, 0");
+  sendCommand("tsw 255,0");
+  recvRetCommandFinished();
 }
 
 void nexEnableScreen(){
-  sendCommand("tsw 255, 1");
+  sendCommand("tsw 255,1");
+  recvRetCommandFinished();
 }
-

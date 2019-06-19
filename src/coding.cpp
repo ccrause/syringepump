@@ -58,7 +58,7 @@ uint32_t primeCycles; //number of times the syringe cycles
 bool displayDispenseVolume = false;
 
 bool debugPrint = false;
-bool debugTMC = true;
+bool debugTMC = false;
 
 // -------------------------------------------Servo----------------------------------------------------
 Servo valve;
@@ -389,6 +389,7 @@ void emptySyringe(){
   if(!passPreconditions(osTripped | osSettings | osManual | osBusy, 0, "empty")) {
     return;
   }
+  nexDisableScreen();
   Serial.println(msgEmptying);
   updateStatusTxt(msgEmptying);
   switchValve(vpOutlet);
@@ -399,6 +400,7 @@ void emptySyringe(){
   updateStatusTxt(msgReady);
   includeState(osEmpty);
   excludeState(osBusy);
+  nexEnableScreen();
 }
 
 void moveUp(){
@@ -641,8 +643,8 @@ void processSerial(){
                                  ('/' == c) || ('\n' == c) || ('\r' == c))) {
       Serial.printf("Busy, ignoring command %c\n", c);
     }
-    else if(c == '?' || c == 'h'){
-      Serial.println("? or h : show this list");
+    else if(c == '?' /*|| c == 'h'*/){
+      Serial.println("? : show this list");
       Serial.println("+ : move up, enter / to stop");
       Serial.println("- : move down, enter / to stop");
       Serial.println("0 : valve to inlet");
@@ -654,9 +656,11 @@ void processSerial(){
       Serial.println("h xxx : Set high speed SGT");
       Serial.println("i : show platform information");
       Serial.println("l xxx : Set low speed SGT");
+      Serial.println("m : Disable TMC controller printing");
+      Serial.println("M : Enable TMC controller printing");
       Serial.println("p : prime");
-      Serial.println("R : reset (use this to recover from a trip)");
       Serial.println("r : clear trip (no reboot, testing only)");
+      Serial.println("R : reset (use this to recover from a trip)");
       Serial.println("z : Zero");
     }
     else if(c == '/'){
@@ -698,11 +702,16 @@ void processSerial(){
     else if(c == 'i'){
       Serial.print(info());
     }
+    else if(c == 'm'){
+      debugTMC = false;
+      Serial.println("TMC messages off");
+    }
+    else if(c == 'M'){
+      debugTMC = true;
+      Serial.println("TMC messages on");
+    }
     else if(c == 'p'){
       prime();
-    }
-    else if(c == 'R'){
-      resetAll();
     }
     else if(c == 'r'){
       digitalWrite(motorEnablePin, LOW);
@@ -711,6 +720,9 @@ void processSerial(){
       currentState = osUnInitialized;
       sendCommand("page 0");
       includeState(osZeroed);
+    }
+    else if(c == 'R'){
+      resetAll();
     }
     else if(c == 'h'){
       char buf[30];
