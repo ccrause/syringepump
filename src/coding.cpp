@@ -16,6 +16,7 @@
 #include "txtmessages.h"
 #include "pumpdriver.h"
 #include "esp_ota.h"
+#include "checkreset.h"
 
 #define defaultSpeedPct 50
 #define defaultDispenseVolume 5.0
@@ -573,7 +574,12 @@ void setup(){
 
   nexInit(115200);
   Serial.begin(115200);
-  if(debugPrint) delay(2000);  // delay startup to allow for serial monitor connection
+
+  // Print CPU0 reset reason on Nextion
+  updateErrorTxt(reset_reason());
+
+  //if(debugPrint)
+  delay(2000);  // delay startup to allow for serial monitor connection
   nexDisableScreen();
 
   // Set Nextion variable used to limit user input
