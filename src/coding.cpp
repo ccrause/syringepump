@@ -320,7 +320,7 @@ void updateDosingParams(){
   motor.highSpeedSettings();
 
   if(debugPrint) Serial.printf("Syringe volume: %.3f\n", syringeVol);
-  dispenseCycles = round((dispenseVol/syringeVol) + 0.5f);
+  dispenseCycles = round((dispenseVol/primeVol) + 0.499f);
   dispenseCycleVol = dispenseVol / dispenseCycles;
   if(debugPrint) Serial.printf("Dispense cycles: %d\n", dispenseCycles);
 
