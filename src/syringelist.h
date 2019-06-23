@@ -11,7 +11,7 @@ struct syringeSpec {
 };
 
 static const syringeSpec syringeInfo[] = {
-  {.vol=20 , .stroke=63.66, .lowSpeedSGT=10, .lowSpeedCurrent=200, .highSpeedSGT=20, .highSpeedCurrent=400},
+  {.vol=20 , .stroke=63.66 , .lowSpeedSGT=10, .lowSpeedCurrent=200, .highSpeedSGT=15, .highSpeedCurrent=400},
   {.vol=50 , .stroke=109.97, .lowSpeedSGT=10, .lowSpeedCurrent=200, .highSpeedSGT=20, .highSpeedCurrent=400},
   {.vol=100, .stroke=141.17, .lowSpeedSGT=10, .lowSpeedCurrent=200, .highSpeedSGT=20, .highSpeedCurrent=400},
   {.vol=250, .stroke=151.61, .lowSpeedSGT=10, .lowSpeedCurrent=200, .highSpeedSGT=20, .highSpeedCurrent=400},

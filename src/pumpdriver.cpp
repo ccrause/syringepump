@@ -122,8 +122,8 @@ void initStepperRunner(){
   driver.blank_time(24);
   driver.rms_current(400); // 400mA
   driver.microsteps(16);
-
-  driver.TCOOLTHRS(0xFFFFF); // 20bit max
+  driver.intpol(true);
+  driver.TCOOLTHRS(2000); // 20bit max, disable stallGuard at low velocity
   driver.THIGH(0);
 
   // Current control, 5.5.3, p. 36
@@ -131,9 +131,9 @@ void initStepperRunner(){
   driver.sgt(motor.lSG);        // Stall sensitivity: more positive -> less sensitive
   driver.seimin(0);             // 0=1/4, 1=1/2 of current setting
   driver.sedn(1);               // Current down step speed (0 = 32 SG values before down)
-  driver.semax(2); //4             // Decrease current if SG value above (semin+semax)*32
-  driver.seup(2);               // Current increment steps
-  driver.semin(16);             // Increase current if SG value below semin*32
+  driver.semax(1); //4             // Decrease current if SG value above (semin+semax)*32
+  driver.seup(3);               // Current increment steps
+  driver.semin(10);             // Increase current if SG value below semin*32
 
   driver.diag1_stall(true);
   driver.diag1_pushpull(true);

@@ -59,7 +59,7 @@ uint32_t primeCycles; //number of times the syringe cycles
 bool displayDispenseVolume = false;
 
 bool debugPrint = false;
-bool debugTMC = false;
+bool debugTMC = true;
 
 // -------------------------------------------Servo----------------------------------------------------
 Servo valve;
@@ -277,6 +277,7 @@ void prime(){
   includeState(osBusy);
   nexDisableScreen();
   Serial.println(msgPriming);
+  motor.highSpeedSettings();
 
   updateErrorTxt("Please Wait");
   updateStatusTxt(msgPriming);
@@ -457,6 +458,7 @@ void dispense(){
   nexDisableScreen();
   updateStatusTxt(msgDispensing);
   Serial.println(msgDispensing);
+  motor.highSpeedSettings();
   // start dispense cycle from primed position
   if (motor.currentPosition() != primeSteps) {
     switchValve(vpInlet);
