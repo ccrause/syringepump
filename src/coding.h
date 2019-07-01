@@ -13,7 +13,9 @@ void moveUp();
 void moveDown();
 void stopMove();
 void settingMode();
+void clearSettingMode();
 void manualMode();
+void clearManualMode();
 void settingsDone(float tmpDispenseVol, uint32_t tmpPrimeVol, uint32_t tmpPrimeCycles, uint32_t tmpSpeed);
 
 

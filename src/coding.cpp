@@ -436,12 +436,18 @@ void stopMove(){
 
 void settingMode(){
   includeState(osSettings);
-  excludeState(osManual);
+}
+
+void clearSettingMode(){
+  excludeState(osSettings);
 }
 
 void manualMode(){
   includeState(osManual);
-  excludeState(osSettings);
+}
+
+void clearManualMode(){
+  excludeState(osManual);
 }
 
 void dispense(){

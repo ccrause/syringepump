@@ -3,6 +3,8 @@
 #include "txtmessages.h"
 #include"coding.h"
 
+#include <errno.h>
+
 NexPage mainPage(0, 0, "page0"); // Home Screen
 NexPage settingsPage(1, 0, "page1"); // Settings Screen
 NexPage manualPage(2, 0, "page2"); // Manual Control Screen
@@ -20,14 +22,14 @@ NexText volumeText(0, 7, "t1"); //Current Syringe Volume
 NexText errMsg0(0, 8, "t2"); //Error Display 28 Carracters max
 
 //Page 1 (Settings)
-NexText errMsg1(1, 4, "t4"); //Error Display 28 Carracters max (id now 3)
+NexText errMsg1(1, 3, "t4"); //Error Display 28 Carracters max
 NexText nexDispenseVol(1, 2, "t0"); //Set Volume
-NexNumber nexPrimeVol(1, 6, "n1"); //global vairable to limit stkokeNumber must be updated on startup
-NexNumber nexPrimeCycles(1, 8, "n2"); //Number of cycles to prime (id now 7)
-NexNumber nexSpeedPct(1, 5, "n0"); // % of max speed(id now 4)
-NexButton manualButtonP1(1, 9, "b1"); // Navigate to manual page (id now 8)
+NexNumber nexPrimeVol(1, 5, "n1"); //global vairable to limit stkokeNumber must be updated on startup
+NexNumber nexPrimeCycles(1, 7, "n2"); //Number of cycles to prime
+NexNumber nexSpeedPct(1, 4, "n0"); // % of max speed
+NexButton manualButtonP1(1, 8, "b1"); // Navigate to manual page
 NexButton homeButtonP1(1, 1, "b0"); // Home Page button update the values for the syringe by reading the vairious values
-NexNumber nexMaxVolLimit(1, 6, "maxStroke"); //global variable to limit stkokeNumber must be updated on startup
+NexNumber nexMaxVolLimit(1, 9, "maxStroke"); //global variable to limit stkokeNumber must be updated on startup
 
 //Page 2 (manual control)
 NexDSButton valvePosition1(2, 1, "bt0"); // Actual Valve Position 0=In 1=Out
@@ -63,7 +65,7 @@ NexTouch *nex_listen_list[] = {
 //buffer to read values from Nextion
 char buffer[30] = {0};
 
-float getDispenseVolume(void);
+bool getDispenseVolume(float *val);
 uint32_t getPrimeVolume(void);
 uint32_t getSpeed(void);
 uint32_t getPrimeCycles(void);
@@ -77,16 +79,73 @@ void primeButtonPopCallBack(void *ptr){
   prime();
 }
 
-void homeButtonPopCallBack(void *prt_){
-  delay(100); // hack to try and read text, perhaps nextion is slow to copy & convert text from page1 to page0?
+// Check settings, if anything is invalid, return to setings page
+// and display some error messge
+// If OK, proceed to next page
+bool checkSettings(void){
+  delay(100); // hack to try and read text, perhaps nextion is slow in processing requests?
 
-  float tmpDispenseVol = getDispenseVolume();
+  float tmpDispenseVol;
+  if(getDispenseVolume(&tmpDispenseVol) == false){
+    sendCommand("page 1");
+    recvRetCommandFinished(100);
+    errMsg1.setText("Error converting");
+    return false;
+  }
+  else{
+    if(tmpDispenseVol > 3*syringeInfo[syringe].vol) {
+      Serial.println("Set volume exceeded");
+      sendCommand("page 1");
+      recvRetCommandFinished(100);
+      errMsg1.setText("Set volume exceeded");
+      char correctedVol[6];
+      itoa(3*syringeInfo[syringe].vol, &correctedVol[0], 10);
+      nexDispenseVol.setText(correctedVol);
+      return false;
+    }
+  }
   uint32_t tmpPrimeVol = getPrimeVolume();
   uint32_t tmpPrimeCycles = getPrimeCycles();
   uint32_t tmpSpeed = getSpeed();
 
   settingsDone(tmpDispenseVol, tmpPrimeVol, tmpPrimeCycles, tmpSpeed);
+  return true;
 }
+
+void settingsButtonPopCallBack(void *ptr) {
+  clearManualMode();
+  settingMode();
+}
+
+void manualButton0PopCallBack(void *ptr) {
+  manualMode();
+}
+
+// Page 1 Home button
+void homeButton1PopCallBack(void *prt_){
+  if (checkSettings()){
+    clearSettingMode();
+  }
+  else{
+    settingMode();
+  }
+}
+
+void manualButton1PopCallBack(void *ptr) {
+  if (checkSettings()){
+    clearSettingMode();
+    manualMode();
+  }
+  else{
+    settingMode();
+  }
+}
+
+// Page 2 home button
+void homeButton2PopCallBack(void *prt_){
+  clearManualMode();
+}
+
 
 void resetSystemButtonPopCallback(void *ptr_) {
   resetAll();
@@ -120,14 +179,6 @@ void downButtonPushCallback(void *prt){
 
 void up_downButtonPopCallback(void *prt){
   stopMove();
-}
-
-void settingsButtonPopCallBack(void *ptr) {
-  settingMode();
-}
-
-void manualButtonPopCallBack(void *ptr) {
-  manualMode();
 }
 
 // Interface to display elements
@@ -196,12 +247,12 @@ void initNextionInterface(){
   upButton.attachPop(up_downButtonPopCallback);
   downButton.attachPush(downButtonPushCallback);
   downButton.attachPop(up_downButtonPopCallback);
-  homeButtonP1.attachPop(homeButtonPopCallBack);
-  homeButtonP2.attachPop(homeButtonPopCallBack);
+  homeButtonP1.attachPop(homeButton1PopCallBack);
+  homeButtonP2.attachPop(homeButton2PopCallBack);
   settingsButtonP0.attachPop(settingsButtonPopCallBack);
   settingsButtonP2.attachPop(settingsButtonPopCallBack);
-  manualButtonP0.attachPop(manualButtonPopCallBack);
-  manualButtonP1.attachPop(manualButtonPopCallBack);
+  manualButtonP0.attachPop(manualButton0PopCallBack);
+  manualButtonP1.attachPop(manualButton1PopCallBack);
   resetSystemButton.attachPop(resetSystemButtonPopCallback);
 }
 
@@ -214,17 +265,26 @@ void nexReset(){
   sendCommand("rest");
 }
 
-float getDispenseVolume(void) {
+// Errors result in return to settings page
+bool getDispenseVolume(float *val) {
   if(debugPrint) Serial.println("Get dispense volume from Nextion");
   memset(buffer, 0, sizeof(buffer));
   if(!nexDispenseVol.getText(buffer, sizeof(buffer))){
     Serial.println("Error reading volume.");
-    return 0;
+    return false;
   }
   else{
-    float temp = atof(buffer);
-    if(debugPrint) Serial.printf("Volume = %f\n", temp);
-    return temp;
+    char *endpointer;
+    errno = 0;
+    *val = strtof(buffer, &endpointer);
+    if(*endpointer != '\0' || errno !=0){
+      if(debugPrint) Serial.println("Error converting dispense volume from text.");
+      return false;
+    }
+    else{
+      if(debugPrint) Serial.printf("Volume = %f\n", *val);
+      return true;
+    }
   }
 }
 
