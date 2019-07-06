@@ -411,8 +411,10 @@ void moveUp(){
   }
   includeState(osBusy);
   motor.lowSpeedSettings();
-  motor.setSpeed(-motor.maxSpeed());
-  safeRun();//-speed*stPmm / 8);
+//  motor.setSpeed(-motor.maxSpeed());
+//  safeRun();//-speed*stPmm / 8);
+  displayDispenseVolume = false;
+  safeMoveTo(0);
 }
 
 void moveDown(){
@@ -422,8 +424,10 @@ void moveDown(){
   }
   includeState(osBusy);
   motor.lowSpeedSettings();
-  motor.setSpeed(motor.maxSpeed());
-  safeRun();//speed*stPmm / 8);
+//  motor.setSpeed(motor.maxSpeed());
+//  safeRun();//speed*stPmm / 8);
+  displayDispenseVolume = false;
+  safeMoveTo(strokeLimitSteps);
 }
 
 void stopMove(){
