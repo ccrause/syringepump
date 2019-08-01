@@ -55,6 +55,7 @@ NexNumber strokeNumber = NexNumber(3, 6, "n0"); //Working Volume mL
 NexNumber primeCyclesNumber = NexNumber(3, 7, "n1"); //Number of cycles to prime
 NexNumber speedNumber = NexNumber(3, 8, "n2"); // % of max speed HIGH Speed
 NexNumber lowSpeedNumber = NexNumber(3, 9, "n3"); // % of max speed LOW Speed
+NexNumber nexMaxVolLimit(3, 10, "va0"); //Max syringe volume update at startup
 
 //Page 4 (manual control)
 NexText statusTextP4 = NexText(4, 1, "t0"); //Status Text Ready, Running, Filling. Error
