@@ -180,7 +180,8 @@ char buffer[30] = {0};
 
 bool getDispenseVolume(float *val);
 uint32_t getPrimeVolume(void);
-uint32_t getSpeed(void);
+uint32_t getHighSpeed(void);
+uint32_t getLowSpeed(void);
 uint32_t getPrimeCycles(void);
 
 void processNexMessages(){
@@ -189,11 +190,17 @@ void processNexMessages(){
 
 void zeroButtonPressed(void *ptr){
   if (debugPrint) Serial.println("zeroButtonPressed");
+  statusTextP0.setText("Calibrating zero offset");
   doZero();
+  if(1) {
+
+  }
+  else {
+
+  }
 }
 
 void settingsButtonPressed(void *ptr) {
-  clearManualMode();
   settingMode();
 }
 
@@ -214,7 +221,7 @@ void dispenseButtonReleased(void *ptr){
 
 void homeButtonReleased(void *ptr){
   if (debugPrint) Serial.println("homeButtonReleased");
-//  prim e();
+  homeMode();
 }
 
 // empty the syringe by moving plunger up to zero volume
@@ -296,40 +303,25 @@ bool checkSettings(void){
   }
   uint32_t tmpPrimeVol = getPrimeVolume();
   uint32_t tmpPrimeCycles = getPrimeCycles();
-  uint32_t tmpSpeed = getSpeed();
+  uint32_t tmpHighSpeed = getHighSpeed();
+  uint32_t tmpLowSpeed = getLowSpeed();
 
-  settingsDone(tmpDispenseVol, tmpPrimeVol, tmpPrimeCycles, tmpSpeed);
+  settingsDone(tmpDispenseVol, tmpPrimeVol, tmpPrimeCycles, tmpHighSpeed, tmpLowSpeed);
   return true;
 }
 
-
 void manualButtonReleased(void *ptr) {
+  if (debugPrint) Serial.println("manualButtonReleased");
   manualMode();
 }
 
-// Page 1 Home button
-void homeButton1PopCallBack(void *prt_){
-  if (checkSettings()){
-    clearSettingMode();
+// First read settings
+// if no error, proceed to Home
+void homeButtonP3Released(void *prt_){
+  if (debugPrint) Serial.println("homeButtonP3Released");
+  if(checkSettings()){
+    homeMode();
   }
-  else{
-    settingMode();
-  }
-}
-
-void manualButton1PopCallBack(void *ptr) {
-  if (checkSettings()){
-    clearSettingMode();
-    manualMode();
-  }
-  else{
-    settingMode();
-  }
-}
-
-// Page 2 home button
-void homeButton2PopCallBack(void *prt_){
-  clearManualMode();
 }
 
 // Interface to display elements
@@ -396,12 +388,14 @@ void updateProgressbarManualNoAck(uint32_t pos){
   nexSerial.write(buffer);
 }
 
-void updateSettings(float tmpDispenseVol, uint32_t tmpPrimeVol, uint32_t tmpPrimeCycles, uint32_t tmpSpeed){
+void updateSettingsDisplay(float tmpDispenseVol, uint32_t tmpPrimeVol, uint32_t tmpPrimeCycles,
+                    uint32_t tmpHighSpeed, uint32_t tmpLowSpeed){
   sprintf(buffer, "%.3f", tmpDispenseVol);
   dispenseVolumeText.setText(buffer);
   primeVolumeNumber.setValue(tmpPrimeVol);
   primeCyclesNumber.setValue(tmpPrimeCycles);
-  highSpeedNumber.setValue(tmpSpeed);
+  highSpeedNumber.setValue(tmpHighSpeed);
+  lowSpeedNumber.setValue(tmpLowSpeed);
 }
 
 void setNexMaxVolLimit(uint32_t limit){
@@ -427,7 +421,7 @@ void initNextionInterface(){
   zeroTotalButton.attachPop(zeroTotalButtonReleased);
 
   // Page 3
-  homeButtonP3.attachPop(homeButtonReleased);
+  homeButtonP3.attachPop(homeButtonP3Released);
   manualButtonP3.attachPop(manualButtonReleased);
 
   // Page 4
@@ -490,11 +484,25 @@ uint32_t getPrimeVolume(void) {
   }
 }
 
-uint32_t getSpeed(void) {
+uint32_t getHighSpeed(void) {
   if(debugPrint) Serial.println("Get speed% from Nextion");
 
   uint32_t temp = 0;
   if(!highSpeedNumber.getValue(&temp)) {
+    Serial.println("Error reading speed.");
+    return 0;
+  }
+  else{
+    if(debugPrint) Serial.printf("Speed = %d%%\n", temp);
+    return temp;
+  }
+}
+
+uint32_t getLowSpeed(void) {
+  if(debugPrint) Serial.println("Get speed% from Nextion");
+
+  uint32_t temp = 0;
+  if(!lowSpeedNumber.getValue(&temp)) {
     Serial.println("Error reading speed.");
     return 0;
   }

@@ -43,15 +43,15 @@ float myAccelStepper::getAcceleration(){
 }
 
 void myAccelStepper::lowSpeedSettings(){
-  AccelStepper::setMaxSpeed(_maxSpeed * stPmm/5);      // Set Max Speed of Stepper (Slower to get better accuracy)
-  AccelStepper::setAcceleration(accelRamp);//maxSpeed*stPmm/10);  // Set Acceleration of Stepper
+  AccelStepper::setMaxSpeed(lowSpeed_mm_s * stPmm);
+  AccelStepper::setAcceleration(accelRamp);
   driver.sgt(this->lSG);
   driver.rms_current(syringeInfo[syringe].lowSpeedCurrent);
 }
 
 void myAccelStepper::highSpeedSettings(){
-  AccelStepper::setMaxSpeed(speed_mm_s * stPmm);      // Set Max Speed of Stepper (Slower to get better accuracy)
-  AccelStepper::setAcceleration(accelRamp);//maxSpeed*stPmm/10);  // Set Acceleration of Stepper
+  AccelStepper::setMaxSpeed(highSpeed_mm_s * stPmm);
+  AccelStepper::setAcceleration(accelRamp);
   driver.sgt(this->hSG);
   driver.rms_current(syringeInfo[syringe].highSpeedCurrent);
 }

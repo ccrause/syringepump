@@ -24,7 +24,8 @@ public:
   void lowSpeedSettings();
   void highSpeedSettings();
 
-  int32_t speed_mm_s;
+  int32_t highSpeed_mm_s;
+  int32_t lowSpeed_mm_s;
   volatile uint16_t stepper_count;
   volatile bool running;
   volatile bool moveToPosition;

@@ -14,10 +14,10 @@ void moveUp();
 void moveDown();
 void stopMove();
 void settingMode();
-void clearSettingMode();
 void manualMode();
-void clearManualMode();
-void settingsDone(float tmpDispenseVol, uint32_t tmpPrimeVol, uint32_t tmpPrimeCycles, uint32_t tmpSpeed);
+void homeMode();
+void settingsDone(float tmpDispenseVol, uint32_t tmpPrimeVol, uint32_t tmpPrimeCycles,
+                  uint32_t tmpSpeed, uint32_t tmpLowSpeed);
 
 
 #endif // _CODING_H_
