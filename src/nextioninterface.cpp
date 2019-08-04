@@ -188,19 +188,14 @@ void processNexMessages(){
   nexLoop(nex_listen_list);
 }
 
-void zeroButtonPressed(void *ptr){
+void zeroButtonReleased(void *ptr){
   if (debugPrint) Serial.println("zeroButtonPressed");
   statusTextP0.setText("Calibrating zero offset");
   doZero();
-  if(1) {
-
-  }
-  else {
-
-  }
 }
 
-void settingsButtonPressed(void *ptr) {
+void settingsButtonReleased(void *ptr) {
+  if (debugPrint) Serial.println("settingsButtonReleased");
   settingMode();
 }
 
@@ -211,7 +206,7 @@ void primeButtonReleased(void *ptr){
 
 void titrateButtonReleased(void *ptr){
   if (debugPrint) Serial.println("titrateButtonReleased");
-//  prim e();
+  titrateMode();
 }
 
 void dispenseButtonReleased(void *ptr){
@@ -350,6 +345,12 @@ void updateVolumeTxt2NoAck(float vol){
   nexSerial.write(buffer);
 }
 
+void updateVolumeTxt4NoAck(float vol){
+  const char sendCmdTxt[] = "page4.t1.txt=\"%.3f\"\xff\xff\xff";
+  sprintf(buffer, sendCmdTxt, vol);
+  nexSerial.write(buffer);
+}
+
 void updateValveDisplay(uint8_t pos){
   valvePositionP0.setValue(pos);
   valvePositionP1.setValue(pos);
@@ -404,10 +405,9 @@ void setNexMaxVolLimit(uint32_t limit){
 
 void initNextionInterface(){
   //register the pop events
-  zeroButton.attachPop(zeroButtonPressed);
-  settingsButtonP0.attachPop(settingsButtonPressed);
+  zeroButton.attachPop(zeroButtonReleased);
+  settingsButtonP0.attachPop(settingsButtonReleased);
   primeButton.attachPop(primeButtonReleased);
-
   titrateButton.attachPop(titrateButtonReleased);
   dispenseButton.attachPop(dispenseButtonReleased);
 
@@ -426,7 +426,7 @@ void initNextionInterface(){
 
   // Page 4
   homeButtonP4.attachPop(homeButtonReleased);
-  settingsButtonP4.attachPop(settingsButtonPressed);
+  settingsButtonP4.attachPop(settingsButtonReleased);
   downButton.attachPush(downButtonPushed);
   downButton.attachPop(up_downButtonReleased);
   upButton.attachPush(upButtonPushed);

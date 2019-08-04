@@ -68,8 +68,8 @@ bool debugTMC = true;
 
 // -------------------------------------------Servo----------------------------------------------------
 Servo valve;
-const int in = 0; // servo angle for inlet aliagnment
-const int out = 140; // servo angle for outlet aliagnment
+const int in = 0; // servo angle for inlet alignment
+const int out = 140; // servo angle for outlet alignment
 enum valvePosition {vpInlet=0, vpOutlet};
 
 //buffer to read values from Nextion
@@ -96,7 +96,14 @@ void safeMoveToUpdateDisplay(float* deltaVolume){
   else if(progress < 0){
     progress = 0;
   }
-  updateProgressbarHome((uint32_t)progress);
+
+  if(currentMode == msDispense){
+    updateProgressbarHome((uint32_t)progress);
+  }
+  else if (currentMode == msTitrate){
+    updateProgressbarTitrate((uint32_t)progress);
+  }
+
   float Vol = syringeVol * (100.0f - progress) / 100.0f;
   dtostrf(Vol, 5, 3, buf);
   updateVolumeTxt(buf);
@@ -153,6 +160,12 @@ void safeMoveTo(long newpos){
   while(motor.running && (motor.trip == false)){
     vTaskDelay(50 / portTICK_PERIOD_MS);
 
+    if(currentMode == msTitrate){
+      if(digitalRead(dispenseButton) == HIGH){
+        motor.running = false;
+      }
+    }
+
     if(debugPrint) Serial.printf("curPos: %ld\ntargetPos: %ld\nspeed: %0.2f\n",
                   motor.currentPosition(), motor.targetPosition(), motor.speed());
     // Update progress bar with plunger movement
@@ -203,10 +216,10 @@ void safeRun(){
 
   // Wait until move is stopped from pop event
   while(motor.running && (motor.trip == false)){
+    vTaskDelay(50 / portTICK_PERIOD_MS);
     processNexMessages();
     processSerial();  // in case a serial stop command is sent
-    vTaskDelay(50 / portTICK_PERIOD_MS);
-    // Update progress bar with plunger movement
+
     if(debugTMC && (Serial.availableForWrite() > 40)){
       uint32_t drv_status = driver.DRV_STATUS();
       // Split out stallGuard value
@@ -215,6 +228,7 @@ void safeRun(){
       Serial.printf("%.4d  |  ", (int) motor.speed());
       Serial.printf("%.4d\n", driver.TSTEP());
     }
+
 
     if(containState(osZeroed) && (nexSerial.availableForWrite() > 20)) {
       double progress = (100.0 * (float)(strokeLimitSteps - motor.currentPosition())) / strokeLimitSteps;
@@ -225,9 +239,9 @@ void safeRun(){
         progress = 0;
       }
 
-      updateProgressbarTitrateNoAck(progress);
       float Vol = syringeVol * (100.0f - progress) / 100.0f;
-      updateVolumeTxt2NoAck(Vol);
+      updateProgressbarManualNoAck(progress);
+      updateVolumeTxt4NoAck(Vol);
     }
   }
   if (debugPrint) Serial.println("Stopped running");
@@ -442,6 +456,14 @@ void settingMode(){
   currentMode = msSettings;
 }
 
+void titrateMode(){
+  currentMode = msTitrate;
+}
+
+void dispenseMode(){
+  currentMode = msDispense;
+}
+
 void manualMode(){
   currentMode = msManual;
 }
@@ -451,8 +473,8 @@ void homeMode(){
 }
 
 void dispense(){
-  if(!passPreconditions(osTripped, osPrimed, "dispense") && !(currentMode == msHome)) {
-    const char btnMsg[] = "Dispense active in Home screen only";
+  if(!passPreconditions(osTripped, osPrimed, "dispense") && !(currentMode == msDispense)) {
+    const char btnMsg[] = "Dispense active in Dispense screen only";
     updateErrorTxt(btnMsg);
     return;
   }
@@ -777,12 +799,22 @@ void loop() {
   processSerial();
 
   dosingButtonState = digitalRead(dispenseButton);
-  // Check dosing button only if it was previously not pressed
-  if((dosingButtonState == 0) && (prevDosingButtonState != 0)){
-    prevDosingButtonState = 0;
-    dispense();
+  if(currentMode == msDispense){
+    // Check dosing button only if it was previously not pressed
+    if((dosingButtonState == 0) && (prevDosingButtonState != 0)){
+      prevDosingButtonState = 0;
+
+      dispense();
+    }
+    else if((dosingButtonState == 1) && (prevDosingButtonState == 0)) {
+      prevDosingButtonState = 1;
+    }
   }
-  else if((dosingButtonState == 1) && (prevDosingButtonState == 0)) {
-    prevDosingButtonState = 1;
+  // This needs to loop and read button and Nextion message
+  else if (currentMode == msTitrate){
+    if (dosingButtonState == 0){
+      displayDispenseVolume = true;
+      safeMoveTo(0);
+    }
   }
 }
