@@ -74,59 +74,103 @@ NexDSButton switchValveButton = NexDSButton(4, 11, "bt1"); // Switch Valve Posit
 NexButton resetSystemButton = NexButton(5, 1, "b0"); //Reset/Restart ESP32*/
 
 
-NexPage mainPage(0, 0, "page0"); // Home Screen
-NexPage settingsPage(1, 0, "page1"); // Settings Screen
-NexPage manualPage(2, 0, "page2"); // Manual Control Screen
-NexPage tripPage(3, 0, "page3"); // Stall / Tripp and reset Screen
+NexPage page0(0, 0, "page0");       // Startup / home Screen
+NexPage page1(1, 0, "page1");       // Dispense screen
+NexPage page2(2, 0, "page2");       // Titrate creen
+NexPage page3(3, 0, "page3");       // Settings screen
+NexPage page4(4, 0, "page4");       // Titrate creen
+NexPage tripPage(5, 0, "page5");    // Stall / Tripp and reset Screen
 
 // Page 0 (Home)
-NexButton primeButton(0, 1, "b0"); //Prime Syringe
-NexButton emptyButton(0, 2, "b1"); // Empty Syringe
-NexButton settingsButtonP0(0, 3, "b2"); //Page1 not used in mcu
-NexButton manualButtonP0(0, 9, "b3"); //Page1 not used in mcu
-NexDSButton valvePosition0(0, 4, "bt0"); // Actual Valve Position 0=IN 1=Out
-NexProgressBar progressBar0(0, 5, "j0"); //Syringe Slider 0=100% Full
-NexText statusText(0, 6, "t0"); //Status Text Ready, Running, Filling. Error
-NexText volumeText(0, 7, "t1"); //Current Syringe Volume
-NexText errMsg0(0, 8, "t2"); //Error Display 28 Carracters max
+NexText statusTextP0(0, 1, "t0");     // Status Text Ready, Running, Filling. Error
+NexText errMsgP0(0, 2, "t1");        // Error Display 50 Characters max, 5 lines
+NexText volumeTextP0(0, 3, "t2");     // Current Syringe Volume
+NexProgressBar progressBarP0(0, 4, "j0"); //Syringe Slider 0=100% Full
+NexDSButton valvePositionP0(0, 5, "bt0"); // Actual Valve Position 0=IN 1=Out
+NexButton zeroButton(0, 6, "b0");   // Start zeroing of plunger
+NexButton settingsButtonP0(0, 7, "b1"); //Page1 not used in mcu
+NexButton primeButton(0, 8, "b2");  //Prime Syringe
+NexButton titrateButton(0, 9, "b3");  // Empty Syringe
+NexButton dispenseButton(0, 10, "b4");  // Empty Syringe
 
-//Page 1 (Settings)
-NexText errMsg1(1, 3, "t4"); //Error Display 28 Carracters max
-NexText nexDispenseVol(1, 2, "t0"); //Set Volume
-NexNumber nexPrimeVol(1, 5, "n1"); //global vairable to limit stkokeNumber must be updated on startup
-NexNumber nexPrimeCycles(1, 7, "n2"); //Number of cycles to prime
-NexNumber nexSpeedPct(1, 4, "n0"); // % of max speed
-NexButton manualButtonP1(1, 8, "b1"); // Navigate to manual page
-NexButton homeButtonP1(1, 1, "b0"); // Home Page button update the values for the syringe by reading the vairious values
-NexNumber nexMaxVolLimit(1, 9, "maxStroke"); //global variable to limit stkokeNumber must be updated on startup
+// Page 1 Dispense
+NexText statusTextP1(1, 1, "t0");     // Status Text Ready, Running, Filling. Error
+NexText errMsgP1(1, 2, "t1");        // Error Display 28 Carracters max
+NexText volumeTextP1(1, 3, "t2");     // Current Syringe Volume
+NexProgressBar progressBarP1(1, 4, "j0"); //Syringe Slider 0=100% Full
+NexDSButton valvePositionP1(1, 5, "bt0"); // Actual Valve Position 0=IN 1=Out
+NexButton homeButtonP1(1, 6, "b0");  // Empty Syringe
+NexButton emptyButtonP1(1, 7, "b1");  // Empty Syringe
 
-//Page 2 (manual control)
-NexDSButton valvePosition1(2, 1, "bt0"); // Actual Valve Position 0=In 1=Out
-NexDSButton switchValveButton(2, 2, "bt1"); // Switch Valve Position 0=In 1=Out
-NexButton upButton(2, 3, "b0"); // Move syringe UP
-NexButton downButton(2, 4, "b1"); // Move Syringe Down
-NexButton homeButtonP2(2, 5, "b2"); // Home Page button
-NexButton settingsButtonP2(2, 6, "b3"); //Page1 not used in mcu
-NexProgressBar progressBar2(2, 7, "j0"); //Syringe Slider 0=100% Full
-NexText errMsg2(2, 8, "t0"); // Errror Diplay 15 caracters max
-NexText volumeTextP2(2, 9, "t1"); //Current Syringe Volume
+// Page 2 Titrate
+NexText statusTextP2(2, 1, "t0");     // Status Text Ready, Running, Filling. Error
+NexText errMsgP2(2, 2, "t1");        // Error Display 28 Carracters max
+NexText volumeTextP2(2, 3, "t2");     // Current Syringe Volume
+NexProgressBar progressBarP2(2, 4, "j0"); //Syringe Slider 0=100% Full
+NexDSButton valvePositionP2(2, 5, "bt0"); // Actual Valve Position 0=IN 1=Out
+NexButton homeButtonP2(2, 6, "b0");   // Start zeroing of plunger
+NexDSButton rateSwitch(2, 7, "sw0");   // Start zeroing of plunger
+NexButton zeroTotalButton(2, 8, "b2");   // Start zeroing of plunger
 
-//Page 3 (TRIP Screen)
-NexButton resetSystemButton(3, 1, "b0"); //Page1 not used in mcu
+// Page 3 Settings
+NexText statusTextP3(3, 1, "t0");     // Status Text Ready, Running, Filling. Error
+NexText errMsgP3(3, 2, "t1");        // Error Display 28 Carracters max
+NexButton homeButtonP3(3, 3, "b0"); // Home Page button update the values for the syringe by reading the vairious values
+NexButton manualButtonP3(3, 4, "b1"); //Page1 not used in mcu
+NexText dispenseVolumeText(3, 5, "t2"); //Set Volume
+NexNumber primeVolumeNumber(3, 6, "n0"); //global vairable to limit stkokeNumber must be updated on startup
+NexNumber primeCyclesNumber(3, 7, "n1"); //Number of cycles to prime
+NexNumber highSpeedNumber(3, 8, "n2"); // % of max speed
+NexNumber lowSpeedNumber(3, 9, "n3"); // % of max speed
+NexNumber nexMaxVolLimit(3, 10, "va0"); //global variable to limit stkokeNumber must be updated on startup
+
+// Page 4 Manual
+NexText statusTextP4(4, 1, "t0");     // Status Text Ready, Running, Filling. Error
+NexText errMsgP4(4, 2, "t1");        // Error Display 28 Carracters max
+NexText volumeTextP4(4, 3, "t2");     // Current Syringe Volume
+NexProgressBar progressBarP4(4, 4, "j0"); //Syringe Slider 0=100% Full
+NexDSButton valvePositionP4(4, 5, "bt0"); // Actual Valve Position 0=IN 1=Out
+NexButton homeButtonP4(4, 6, "b0");
+NexButton settingsButtonP4(4, 7, "b0");
+NexButton downButton(4, 8, "b2"); // Move Syringe Down
+NexButton upButton(4, 9, "b3"); // Move syringe UP
+NexButton refillButton(4, 10, "b4");
+NexDSButton switchValveButton(4, 11, "bt1"); // Switch Valve Position 0=In 1=Out
+
+//Page 5 TRIP
+NexButton resetSystemButton(5, 1, "b0"); //Page1 not used in mcu
 
 // Buttons that have a executable action assigned to them
 NexTouch *nex_listen_list[] = {
-  &primeButton,
-  &homeButtonP1,
-  &homeButtonP2,
-  &switchValveButton,
-  &emptyButton,
-  &upButton,
-  &downButton,
+  // Page 0
+  &zeroButton,
   &settingsButtonP0,
-  &settingsButtonP2,
-  &manualButtonP0,
-  &manualButtonP1,
+  &primeButton,
+  &titrateButton,
+  &dispenseButton,
+
+  // Page 1
+  &homeButtonP1,
+  &emptyButtonP1,
+
+  // Page 2
+  &homeButtonP2,
+  &rateSwitch,
+  &zeroTotalButton,
+
+  // Page 3
+  &homeButtonP3,
+  &manualButtonP3,
+
+  // Page 4
+  &homeButtonP4,
+  &settingsButtonP4,
+  &downButton,
+  &upButton,
+  &refillButton,
+  &switchValveButton,
+
+  // Page 5
   &resetSystemButton,
   NULL
 };
@@ -143,9 +187,86 @@ void processNexMessages(){
   nexLoop(nex_listen_list);
 }
 
-void primeButtonPopCallBack(void *ptr){
-  Serial.println("primeButtonPopCallBack");
+void zeroButtonPressed(void *ptr){
+  if (debugPrint) Serial.println("zeroButtonPressed");
+  doZero();
+}
+
+void settingsButtonPressed(void *ptr) {
+  clearManualMode();
+  settingMode();
+}
+
+void primeButtonReleased(void *ptr){
+  if (debugPrint) Serial.println("primeButtonReleased");
   prime();
+}
+
+void titrateButtonReleased(void *ptr){
+  if (debugPrint) Serial.println("titrateButtonReleased");
+//  prim e();
+}
+
+void dispenseButtonReleased(void *ptr){
+  if (debugPrint) Serial.println("dispenseButtonReleased");
+//  prim e();
+}
+
+void homeButtonReleased(void *ptr){
+  if (debugPrint) Serial.println("homeButtonReleased");
+//  prim e();
+}
+
+// empty the syringe by moving plunger up to zero volume
+void emptyButtonReleased(void *prt){
+  if (debugPrint) Serial.println("emptyButtonReleased");
+  emptySyringe();
+}
+
+void rateSwitchButtonReleased(void *prt){
+  if (debugPrint) Serial.println("rateSwitchButtonReleased");
+  //
+}
+
+void zeroTotalButtonReleased(void *prt){
+  if (debugPrint) Serial.println("zeroTotalButtonReleased");
+  //
+}
+
+void upButtonPushed(void *prt){
+  if (debugPrint) Serial.println("upButtonPushed");
+  moveUp();
+}
+
+void downButtonPushed(void *prt){
+  if (debugPrint) Serial.println("downButtonPushed");
+  moveDown();
+}
+
+void up_downButtonReleased(void *prt){
+  if (debugPrint) Serial.println("up_downButtonReleased");
+  stopMove();
+}
+
+void refillButtonReleased(void *prt){
+  if (debugPrint) Serial.println("refillButtonReleased");
+
+}
+
+void resetSystemButtonReleased(void *ptr_) {
+  resetAll();
+}
+
+//actuate the three way valve invert the current position
+void switchValveButtonReleased(void *prt){
+  uint32_t dual_state;
+  switchValveButton.getValue(&dual_state);
+  if (!dual_state) {
+    switchValve(0);
+  }
+  else {
+    switchValve(1);
+  }
 }
 
 // Check settings, if anything is invalid, return to setings page
@@ -156,20 +277,20 @@ bool checkSettings(void){
 
   float tmpDispenseVol;
   if(getDispenseVolume(&tmpDispenseVol) == false){
-    sendCommand("page 1");
+    sendCommand("page 3");
     recvRetCommandFinished(100);
-    errMsg1.setText("Error converting");
+    errMsgP3.setText("Error converting");
     return false;
   }
   else{
     if(tmpDispenseVol > 3*syringeInfo[syringe].vol) {
       Serial.println("Set volume exceeded");
-      sendCommand("page 1");
+      sendCommand("page 3");
       recvRetCommandFinished(100);
-      errMsg1.setText("Set volume exceeded");
+      errMsgP3.setText("Set volume exceeded");
       char correctedVol[6];
       itoa(3*syringeInfo[syringe].vol, &correctedVol[0], 10);
-      nexDispenseVol.setText(correctedVol);
+      dispenseVolumeText.setText(correctedVol);
       return false;
     }
   }
@@ -181,12 +302,8 @@ bool checkSettings(void){
   return true;
 }
 
-void settingsButtonPopCallBack(void *ptr) {
-  clearManualMode();
-  settingMode();
-}
 
-void manualButton0PopCallBack(void *ptr) {
+void manualButtonReleased(void *ptr) {
   manualMode();
 }
 
@@ -215,55 +332,24 @@ void homeButton2PopCallBack(void *prt_){
   clearManualMode();
 }
 
-
-void resetSystemButtonPopCallback(void *ptr_) {
-  resetAll();
-}
-
-//actuate the three way valve invert the current position
-void switchValveButtonPopCallBack(void *prt){
-  uint32_t dual_state;
-  switchValveButton.getValue(&dual_state);
-  if (!dual_state) {
-    switchValve(0);
-  }
-  else {
-    switchValve(1);
-  }
-}
-
-// empty the syringe by moving plunger up to zero volume
-void emptyButtonPopCallBack(void *prt){
-  emptySyringe();
-}
-
-// move the plunger up 5mm if possible
-void upButtonPushCallback(void *prt){
-  moveUp();
-}
-
-void downButtonPushCallback(void *prt){
-  moveDown();
-}
-
-void up_downButtonPopCallback(void *prt){
-  stopMove();
-}
-
 // Interface to display elements
 void updateStatusTxt(const char status[]){
-  statusText.setText(status);
+  statusTextP0.setText(status);
 }
 
 void updateErrorTxt(const char err[]){
-  errMsg0.setText(err);
-  errMsg1.setText(err);
-  errMsg2.setText(err);
+  errMsgP0.setText(err);
+  errMsgP1.setText(err);
+  errMsgP2.setText(err);
+  errMsgP3.setText(err);
+  errMsgP4.setText(err);
 }
 
 void updateVolumeTxt(const char txt[]){
-  volumeText.setText(txt);
+  volumeTextP0.setText(txt);
+  volumeTextP1.setText(txt);
   volumeTextP2.setText(txt);
+  volumeTextP4.setText(txt);
 }
 
 void updateVolumeTxt2NoAck(float vol){
@@ -273,34 +359,49 @@ void updateVolumeTxt2NoAck(float vol){
 }
 
 void updateValveDisplay(uint8_t pos){
-  valvePosition0.setValue(pos);  //update valve p0
-  valvePosition1.setValue(pos); //update valve p1
+  valvePositionP0.setValue(pos);
+  valvePositionP1.setValue(pos);
+  valvePositionP2.setValue(pos);
+  valvePositionP4.setValue(pos);
   switchValveButton.setValue(pos);  //update valve switch p1
 }
 
-void updateProgressbar0(uint32_t pos){
-  progressBar0.setValue(pos);
+void updateProgressbarHome(uint32_t pos){
+  progressBarP0.setValue(pos);
 }
 
+void updateProgressbarDispense(uint32_t pos){
+  progressBarP1.setValue(pos);
+}
+
+void updateProgressbarTitrate(uint32_t pos){
+  progressBarP2.setValue(pos);
+}
 // Send command but do not read response
 // This leaves Nextion response in serial buffer
 // This response will then be removed by nexLoop without interfering with the nexLoop logic.
-void updateProgressbar2NoAck(uint32_t pos){
+void updateProgressbarTitrateNoAck(uint32_t pos){
   const char sendCmdVal[] = "page2.j0.val=%d\xff\xff\xff";
   sprintf(buffer, sendCmdVal, pos);
   nexSerial.write(buffer);
 }
 
-void updateProgressbar2(uint32_t pos){
-  progressBar2.setValue(pos);
+void updateProgressbarManual(uint32_t pos){
+  progressBarP4.setValue(pos);
+}
+
+void updateProgressbarManualNoAck(uint32_t pos){
+  const char sendCmdVal[] = "page4.j0.val=%d\xff\xff\xff";
+  sprintf(buffer, sendCmdVal, pos);
+  nexSerial.write(buffer);
 }
 
 void updateSettings(float tmpDispenseVol, uint32_t tmpPrimeVol, uint32_t tmpPrimeCycles, uint32_t tmpSpeed){
   sprintf(buffer, "%.3f", tmpDispenseVol);
-  nexDispenseVol.setText(buffer);
-  nexPrimeVol.setValue(tmpPrimeVol);
-  nexPrimeCycles.setValue(tmpPrimeCycles);
-  nexSpeedPct.setValue(tmpSpeed);
+  dispenseVolumeText.setText(buffer);
+  primeVolumeNumber.setValue(tmpPrimeVol);
+  primeCyclesNumber.setValue(tmpPrimeCycles);
+  highSpeedNumber.setValue(tmpSpeed);
 }
 
 void setNexMaxVolLimit(uint32_t limit){
@@ -309,20 +410,38 @@ void setNexMaxVolLimit(uint32_t limit){
 
 void initNextionInterface(){
   //register the pop events
-  primeButton.attachPop(primeButtonPopCallBack);
-  switchValveButton.attachPop(switchValveButtonPopCallBack);
-  emptyButton.attachPop(emptyButtonPopCallBack);
-  upButton.attachPush(upButtonPushCallback);
-  upButton.attachPop(up_downButtonPopCallback);
-  downButton.attachPush(downButtonPushCallback);
-  downButton.attachPop(up_downButtonPopCallback);
-  homeButtonP1.attachPop(homeButton1PopCallBack);
-  homeButtonP2.attachPop(homeButton2PopCallBack);
-  settingsButtonP0.attachPop(settingsButtonPopCallBack);
-  settingsButtonP2.attachPop(settingsButtonPopCallBack);
-  manualButtonP0.attachPop(manualButton0PopCallBack);
-  manualButtonP1.attachPop(manualButton1PopCallBack);
-  resetSystemButton.attachPop(resetSystemButtonPopCallback);
+  zeroButton.attachPop(zeroButtonPressed);
+  settingsButtonP0.attachPop(settingsButtonPressed);
+  primeButton.attachPop(primeButtonReleased);
+
+  titrateButton.attachPop(titrateButtonReleased);
+  dispenseButton.attachPop(dispenseButtonReleased);
+
+  // Page 1
+  homeButtonP1.attachPop(homeButtonReleased);
+  emptyButtonP1.attachPop(emptyButtonReleased);
+
+  // Page 2
+  homeButtonP2.attachPop(homeButtonReleased);
+  rateSwitch.attachPop(rateSwitchButtonReleased);
+  zeroTotalButton.attachPop(zeroTotalButtonReleased);
+
+  // Page 3
+  homeButtonP3.attachPop(homeButtonReleased);
+  manualButtonP3.attachPop(manualButtonReleased);
+
+  // Page 4
+  homeButtonP4.attachPop(homeButtonReleased);
+  settingsButtonP4.attachPop(settingsButtonPressed);
+  downButton.attachPush(downButtonPushed);
+  downButton.attachPop(up_downButtonReleased);
+  upButton.attachPush(upButtonPushed);
+  upButton.attachPop(up_downButtonReleased);
+  refillButton.attachPop(refillButtonReleased),
+  switchValveButton.attachPop(switchValveButtonReleased);
+
+  // Page 5
+  resetSystemButton.attachPop(resetSystemButtonReleased);
 }
 
 void nexTripAlert(){
@@ -338,7 +457,7 @@ void nexReset(){
 bool getDispenseVolume(float *val) {
   if(debugPrint) Serial.println("Get dispense volume from Nextion");
   memset(buffer, 0, sizeof(buffer));
-  if(!nexDispenseVol.getText(buffer, sizeof(buffer))){
+  if(!dispenseVolumeText.getText(buffer, sizeof(buffer))){
     Serial.println("Error reading volume.");
     return false;
   }
@@ -361,7 +480,7 @@ uint32_t getPrimeVolume(void) {
   if(debugPrint) Serial.println("Get priming volume from Nextion");
 
   uint32_t temp = 0;
-  if(!nexPrimeVol.getValue(&temp)) {
+  if(!primeVolumeNumber.getValue(&temp)) {
     Serial.println("Error reading priming volume.");
     return 0;
   }
@@ -375,7 +494,7 @@ uint32_t getSpeed(void) {
   if(debugPrint) Serial.println("Get speed% from Nextion");
 
   uint32_t temp = 0;
-  if(!nexSpeedPct.getValue(&temp)) {
+  if(!highSpeedNumber.getValue(&temp)) {
     Serial.println("Error reading speed.");
     return 0;
   }
@@ -389,7 +508,7 @@ uint32_t getPrimeCycles(void) {
   if(debugPrint) Serial.println("Get prime cycles from Nextion");
 
   uint32_t temp = 0;
-  if(!nexPrimeCycles.getValue(&temp)) {
+  if(!primeCyclesNumber.getValue(&temp)) {
     Serial.println("Error reading prime cycles.");
     return 0;
   }

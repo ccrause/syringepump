@@ -11,9 +11,9 @@ void updateVolumeTxt(const char txt[]);
 void updateVolumeTxt2NoAck(float vol);
 
 void updateValveDisplay(uint8_t pos);
-void updateProgressbar0(uint32_t pos);
-void updateProgressbar2(uint32_t pos);
-void updateProgressbar2NoAck(uint32_t pos);
+void updateProgressbarHome(uint32_t pos);
+void updateProgressbarTitrate(uint32_t pos);
+void updateProgressbarTitrateNoAck(uint32_t pos);
 void updateSettings(float tmpDispenseVol, uint32_t tmpPrimeVol, uint32_t tmpPrimeCycles, uint32_t tmpSpeed);
 void setNexMaxVolLimit(uint32_t limit);
 

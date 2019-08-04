@@ -5,6 +5,7 @@
 
 extern syringeType syringe;
 
+void doZero();
 void resetAll();
 void prime();
 void switchValve(uint8_t pos);

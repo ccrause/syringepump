@@ -91,7 +91,7 @@ void safeMoveToUpdateDisplay(float* deltaVolume){
   else if(progress < 0){
     progress = 0;
   }
-  updateProgressbar0((uint32_t)progress);
+  updateProgressbarHome((uint32_t)progress);
   float Vol = syringeVol * (100.0f - progress) / 100.0f;
   dtostrf(Vol, 5, 3, buf);
   updateVolumeTxt(buf);
@@ -221,7 +221,7 @@ void safeRun(){
         progress = 0;
       }
 
-      updateProgressbar2NoAck(progress);
+      updateProgressbarTitrateNoAck(progress);
       float Vol = syringeVol * (100.0f - progress) / 100.0f;
       updateVolumeTxt2NoAck(Vol);
     }
@@ -315,7 +315,7 @@ void updateDosingParams(){
   float tmpProgress = (100.0f * (float)(strokeLimitSteps - motor.currentPosition())) / strokeLimitSteps;
   if(tmpProgress > 100) {tmpProgress = 100;}
   else if(tmpProgress < 0) {tmpProgress = 0;}
-  updateProgressbar0((uint32_t)tmpProgress);
+  updateProgressbarHome((uint32_t)tmpProgress);
 
   motor.speed_mm_s = (_maxSpeed * speedPct) / 100.0f;
   if(debugPrint) Serial.printf("Speed = %d mm/s\n", motor.speed_mm_s);
@@ -519,7 +519,7 @@ void loadConfig(){
   updateSettings(dispenseVol, primeVol, primeCycles, speedPct);
 }
 
-bool checkZero(){
+void doZero(){
   excludeState(osZeroed);  // disable screen updates, enable zeroing  on trip
   excludeState(osBusy);
   switchValve(vpOutlet);
@@ -534,7 +534,9 @@ bool checkZero(){
   }
   else{
     if(debugPrint) Serial.println("Unexpectedly no trip");
-    return false;
+    motor.trip = true;
+    motor.reset();
+    return;
   }
 
   // 2. Move 10 mm down without tripping
@@ -543,7 +545,7 @@ bool checkZero(){
   if(debugPrint) Serial.println("2. Moved down 5 mm.");
   if(motor.trip) {
     motor.reset();
-    return false;  // do nothing if tripped
+    return;  // do nothing if tripped
   }
 
   // 3. Move up until trip, set pos = -1 mm
@@ -552,17 +554,18 @@ bool checkZero(){
   safeMoveTo(-100 * stPmm);
   if(motor.trip){
     motor.running = false;
-    motor.trip = false;
     motor.setSpeed(0);  // Expect to trip at full speed, need to reset to 0 else code will want to slow down first
     // should trip close to previous trip set at -1 mm
     if(abs(motor.currentPosition() + stPmm) > (stPmm/2)){
       Serial.println("Error checking zero point");
-      return false;
+      return;
+    motor.trip = false;
     }
   }
   else{
     if(debugPrint) Serial.println("Unexpectedly no trip");
-    return false;
+    motor.trip = true;
+    return;
   }
 
   // 4. Move to zero
@@ -571,12 +574,12 @@ bool checkZero(){
   safeMoveTo(0);
   if(motor.trip) {
     motor.reset();
-    return false;
+    return;
   }
 
   includeState(osZeroed);
   excludeState(osBusy);
-  return true;
+  return;
 }
 
 void setup(){
@@ -614,12 +617,12 @@ void setup(){
 
   valve.attach(servo); //enable servo
 
-  updateErrorTxt("Please wait    Setting Up"); //Top Line note spacing
-  updateStatusTxt(msgZeroing); //Status
+  updateErrorTxt("Press zero to start"); //Top Line note spacing
+  updateStatusTxt("");//msgZeroing); //Status
   updateVolumeTxt("-----"); // Volume
 
+  /*
   if(debugPrint) Serial.println(msgZeroing);
-
   motor.lowSpeedSettings();
   // Plunger zeroing
   if(!checkZero()){
@@ -639,6 +642,8 @@ void setup(){
 
   excludeState(osBusy);
   nexEnableScreen();
+
+  */
   if(debugPrint) {
     Serial.println("Debug messages on");
   }
@@ -776,12 +781,13 @@ void processSerial(){
     }
     else if(c == 'z'){
       motor.lowSpeedSettings();
-      if(!checkZero()){
+      doZero();
+      if(motor.trip){
         Serial.println("Error finding zero");
         nexTripAlert();
       };
-      updateProgressbar0(100); //show slider value as zero
-      updateProgressbar2(100); //Progress bar empty P1
+      updateProgressbarHome(100); //show slider value as zero
+      updateProgressbarTitrate(100); //Progress bar empty P1
       Serial.println("Homing Completed");
 
       motor.highSpeedSettings();
