@@ -160,10 +160,8 @@ void safeMoveTo(long newpos){
   while(motor.running && (motor.trip == false)){
     vTaskDelay(50 / portTICK_PERIOD_MS);
 
-    if(currentMode == msTitrate){
-      if(digitalRead(dispenseButton) == HIGH){
+    if((currentMode == msTitrate) && (digitalRead(dispenseButton) != 0)){
         motor.running = false;
-      }
     }
 
     if(debugPrint) Serial.printf("curPos: %ld\ntargetPos: %ld\nspeed: %0.2f\n",
@@ -456,12 +454,24 @@ void settingMode(){
   currentMode = msSettings;
 }
 
-void titrateMode(){
-  currentMode = msTitrate;
+bool titrateMode(){
+  if(containState(osPrimed)){
+    currentMode = msTitrate;
+    return true;
+  }
+  else{
+    return false;
+  }
 }
 
-void dispenseMode(){
-  currentMode = msDispense;
+bool dispenseMode(){
+  if(containState(osPrimed)){
+    currentMode = msDispense;
+    return true;
+  }
+  else{
+    return false;
+  }
 }
 
 void manualMode(){
@@ -529,7 +539,8 @@ void loadConfig(){
   updateSettingsDisplay(dispenseVol, primeVol, primeCycles, highSpeedPct, lowSpeedPct);
 }
 
-void doZero(){
+bool doZero(){
+bool isOK;
   excludeState(osZeroed);  // disable screen updates, enable zeroing  on trip
   switchValve(vpOutlet);
   displayDispenseVolume = false;
@@ -540,54 +551,65 @@ void doZero(){
     motor.running = false;
     motor.trip = false;
     motor.setCurrentPosition(-stPmm);
+    isOK = true;
   }
   else{
     if(debugPrint) Serial.println("Unexpectedly no trip");
     motor.trip = true;
-    motor.reset();
-    return;
+    isOK = false;
   }
 
   // 2. Move 10 mm down without tripping
-  switchValve(vpInlet);
-  safeMoveTo(5 * stPmm);
-  if(debugPrint) Serial.println("2. Moved down 5 mm.");
-  if(motor.trip) {
-    motor.reset();
-    return;  // do nothing if tripped
+  if(isOK){
+    switchValve(vpInlet);
+    safeMoveTo(5 * stPmm);
+    if(debugPrint) Serial.println("2. Moved down 5 mm.");
+    if(motor.trip) {
+      motor.reset();
+      isOK = false;
+    }
   }
 
   // 3. Move up until trip, set pos = -1 mm
-  switchValve(vpOutlet);
-  if(debugPrint) Serial.println("3. Move back up...");
-  safeMoveTo(-100 * stPmm);
-  if(motor.trip){
-    motor.running = false;
-    motor.setSpeed(0);  // Expect to trip at full speed, need to reset to 0 else code will want to slow down first
+  if(isOK){
+    switchValve(vpOutlet);
+    if(debugPrint) Serial.println("3. Move back up...");
+    safeMoveTo(-100 * stPmm);
+    if(motor.trip){
+      motor.running = false;
+      motor.setSpeed(0);  // Expect to trip at full speed, need to reset to 0 else code will want to slow down first
     // should trip close to previous trip set at -1 mm
-    if(abs(motor.currentPosition() + stPmm) > (stPmm/2)){
-      Serial.println("Error checking zero point");
-      return;
-    motor.trip = false;
+      if(abs(motor.currentPosition() + stPmm) > (stPmm/2)){
+        Serial.println("Error verifying zero");
+        isOK = false;
+      }
+      motor.trip = false;
+    }
+    else{
+      if(debugPrint) Serial.println("Unexpectedly no trip");
+      motor.trip = true;
+      isOK = false;
     }
   }
-  else{
-    if(debugPrint) Serial.println("Unexpectedly no trip");
-    motor.trip = true;
-    return;
-  }
-
   // 4. Move to zero
-  switchValve(vpInlet);
-  if(debugPrint) Serial.println("4. Move to 0");
-  safeMoveTo(0);
-  if(motor.trip) {
-    motor.reset();
-    return;
+  if(isOK){
+    switchValve(vpInlet);
+    if(debugPrint) Serial.println("4. Move to 0");
+    safeMoveTo(0);
+    if(motor.trip) {
+      isOK = false;
+    }
   }
 
-  includeState(osZeroed);
-  return;
+  if(isOK){
+    includeState(osZeroed);
+  }
+  else{
+    motor.reset();
+    nexTripAlert();
+  }
+
+  return isOK;
 }
 
 void setup(){
@@ -806,7 +828,7 @@ void loop() {
 
       dispense();
     }
-    else if((dosingButtonState == 1) && (prevDosingButtonState == 0)) {
+    else if((dosingButtonState != 0) && (prevDosingButtonState == 0)) {
       prevDosingButtonState = 1;
     }
   }
@@ -815,6 +837,9 @@ void loop() {
     if (dosingButtonState == 0){
       displayDispenseVolume = true;
       safeMoveTo(0);
+    }
+    else{
+      stopMove();
     }
   }
 }

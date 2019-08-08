@@ -5,7 +5,7 @@
 
 extern syringeType syringe;
 
-void doZero();
+bool doZero();
 void resetAll();
 void prime();
 void switchValve(uint8_t pos);
@@ -14,8 +14,8 @@ void moveUp();
 void moveDown();
 void stopMove();
 void settingMode();
-void titrateMode();
-void dispenseMode();
+bool titrateMode();
+bool dispenseMode();
 void manualMode();
 void homeMode();
 void settingsDone(float tmpDispenseVol, uint32_t tmpPrimeVol, uint32_t tmpPrimeCycles,

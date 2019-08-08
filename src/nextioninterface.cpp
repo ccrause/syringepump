@@ -109,8 +109,8 @@ NexText volumeTextP2(2, 3, "t2");     // Current Syringe Volume
 NexProgressBar progressBarP2(2, 4, "j0"); //Syringe Slider 0=100% Full
 NexDSButton valvePositionP2(2, 5, "bt0"); // Actual Valve Position 0=IN 1=Out
 NexButton homeButtonP2(2, 6, "b0");   // Start zeroing of plunger
-NexDSButton rateSwitch(2, 7, "sw0");   // Start zeroing of plunger
-NexButton zeroTotalButton(2, 8, "b2");   // Start zeroing of plunger
+NexButton zeroTotalButton(2, 7, "b2");   // Start zeroing of plunger
+NexDSButton rateSwitch(2, 8, "bt1");   // Start zeroing of plunger
 
 // Page 3 Settings
 NexText statusTextP3(3, 1, "t0");     // Status Text Ready, Running, Filling. Error
@@ -190,8 +190,13 @@ void processNexMessages(){
 
 void zeroButtonReleased(void *ptr){
   if (debugPrint) Serial.println("zeroButtonPressed");
-  statusTextP0.setText("Calibrating zero offset");
-  doZero();
+  errMsgP0.setText("Calibrating zero offset of syringe");
+  statusTextP0.setText("Zeroing");
+  if(doZero()){
+    errMsgP0.setText("Prime syringe before selecting\n titrate or dispense");
+    statusTextP0.setText("Zero OK");
+  }
+  // If doZero fails it will set states and display trip alert
 }
 
 void settingsButtonReleased(void *ptr) {
@@ -206,12 +211,20 @@ void primeButtonReleased(void *ptr){
 
 void titrateButtonReleased(void *ptr){
   if (debugPrint) Serial.println("titrateButtonReleased");
-  titrateMode();
+  if(!titrateMode()){
+    sendCommand("page 0");
+    recvRetCommandFinished(100);
+    errMsgP0.setText("Prime first");
+  }
 }
 
 void dispenseButtonReleased(void *ptr){
   if (debugPrint) Serial.println("dispenseButtonReleased");
-//  prim e();
+  if(!dispenseMode()){
+    sendCommand("page 0");
+    recvRetCommandFinished(100);
+    errMsgP0.setText("Prime first");
+  }
 }
 
 void homeButtonReleased(void *ptr){
@@ -440,7 +453,7 @@ void initNextionInterface(){
 
 void nexTripAlert(){
   Serial.println(tripMessage);
-  sendCommand("page 3"); // page3.show() doesn't work??
+  sendCommand("page 5"); // page3.show() doesn't work??
 }
 
 void nexReset(){
