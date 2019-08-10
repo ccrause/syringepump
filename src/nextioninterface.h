@@ -7,7 +7,16 @@
 void processNexMessages();
 void updateStatusTxt(const char status[]);
 void updateErrorTxt(const char err[]);
+void updateErrorTxt0(const char err[]);
+void updateErrorTxt1(const char err[]);
+void updateErrorTxt2(const char err[]);
+void updateErrorTxt4(const char err[]);
+
 void updateVolumeTxt(const char txt[]);
+void updateVolumeTxt0(const char txt[]);
+void updateVolumeTxt1(const char txt[]);
+void updateVolumeTxt2(const char txt[]);
+void updateVolumeTxt4(const char txt[]);
 void updateVolumeTxt2NoAck(float vol);
 void updateVolumeTxt4NoAck(float vol);
 
@@ -15,6 +24,7 @@ void updateValveDisplay(uint8_t pos);
 void updateProgressbarHome(uint32_t pos);
 void updateProgressbarTitrate(uint32_t pos);
 void updateProgressbarTitrateNoAck(uint32_t pos);
+void updateProgressbarManual(uint32_t pos);
 void updateProgressbarManualNoAck(uint32_t pos);
 
 void updateSettingsDisplay(float tmpDispenseVol, uint32_t tmpPrimeVol, uint32_t tmpPrimeCycles,

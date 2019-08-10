@@ -18,10 +18,10 @@
 #include "esp_ota.h"
 #include "checkreset.h"
 
-#define defaultHighSpeedPct 50
-#define defaultLowSpeedPct 10
+#define defaultHighSpeedPct 80
+#define defaultLowSpeedPct 40
 #define defaultDispenseVolume 5.0
-#define defaultPrimeVolume 20
+#define defaultPrimeVolume 10
 #define defaultPrimeCycles 1
 
 #define configNamespace "pumpSettings"
@@ -63,8 +63,8 @@ long dispenseSteps = 0;  // stroke per dispense cycle
 uint32_t primeCycles; //number of times the syringe cycles
 bool displayDispenseVolume = false;
 
-bool debugPrint = false;
-bool debugTMC = true;
+bool debugPrint = true;
+bool debugTMC = false;
 
 // -------------------------------------------Servo----------------------------------------------------
 Servo valve;
@@ -97,23 +97,37 @@ void safeMoveToUpdateDisplay(float* deltaVolume){
     progress = 0;
   }
 
+  float Vol = syringeVol * (100.0f - progress) / 100.0f;
+  dtostrf(Vol, 5, 3, buf);
+
   if(currentMode == msDispense){
     updateProgressbarHome((uint32_t)progress);
+    updateVolumeTxt1(buf);
   }
   else if (currentMode == msTitrate){
     updateProgressbarTitrate((uint32_t)progress);
+    updateVolumeTxt2(buf);
   }
-
-  float Vol = syringeVol * (100.0f - progress) / 100.0f;
-  dtostrf(Vol, 5, 3, buf);
-  updateVolumeTxt(buf);
+  else if (currentMode == msManual){
+    updateProgressbarManual((uint32_t)progress);
+    updateVolumeTxt4(buf);
+  }
 
   // update Volume display
   if(displayDispenseVolume){
     progress = (100.0f * (float)(primeSteps - motor.currentPosition())) / dispenseSteps;
     *deltaVolume = dispenseCycleVol * progress / 100.0f;
     dtostrf(totalDispensedVol + *deltaVolume, 5, 3, buf);
-    updateErrorTxt(buf);
+    switch(currentMode){
+      case msDispense:{
+        updateErrorTxt1(buf);
+        break;
+      }
+      case msTitrate:{
+        updateErrorTxt2(buf);
+        break;
+      }
+    }
   }
 }
 
@@ -160,12 +174,18 @@ void safeMoveTo(long newpos){
   while(motor.running && (motor.trip == false)){
     vTaskDelay(50 / portTICK_PERIOD_MS);
 
-    if((currentMode == msTitrate) && (digitalRead(dispenseButton) != 0)){
+    if(currentMode == msTitrate){
+      if(digitalRead(dispenseButton) != 0){
         motor.running = false;
+      }
+      if(debugPrint) Serial.println("Titrate button released");
+    }
+    else if (currentMode == msManual){
+      processNexMessages();  // wait for button release event
     }
 
-    if(debugPrint) Serial.printf("curPos: %ld\ntargetPos: %ld\nspeed: %0.2f\n",
-                  motor.currentPosition(), motor.targetPosition(), motor.speed());
+//    if(debugPrint) Serial.printf("curPos: %ld\ntargetPos: %ld\nspeed: %0.2f\n",
+//                  motor.currentPosition(), motor.targetPosition(), motor.speed());
     // Update progress bar with plunger movement
     if(containState(osZeroed) && (nexSerial.availableForWrite() > 50)) {
       safeMoveToUpdateDisplay(&deltaVol);
@@ -284,6 +304,51 @@ void switchValve(uint8_t pos) {
   delay(1000);
 }
 
+// empty the syringe by moving plunger up to zero volume
+void emptySyringe(){
+  if(containState(osTripped)) {
+    Serial.println("Cannot empty syringe because state=TRIP");
+    return;
+  }
+  nexDisableScreen();
+  Serial.println(msgEmptying);
+  updateStatusTxt(msgEmptying);
+  switchValve(vpOutlet);
+  if(debugPrint) Serial.println("valve to outlet");
+  safeMoveTo(0);
+  if(containState(osTripped)){
+    nexTripAlert();
+    motor.reset();
+    return;
+  }
+
+  Serial.println(msgReady);
+  updateStatusTxt(msgReady);
+  nexEnableScreen();
+}
+
+void fillSyringe(){
+  if(containState(osTripped)) {
+    Serial.println("Cannot fill syringe because state=TRIP");
+    return;
+  }
+  nexDisableScreen();
+  Serial.println(msgFilling);
+  updateStatusTxt(msgFilling);
+  switchValve(vpInlet);
+  if(debugPrint) Serial.println("valve to inlet");
+  safeMoveTo(primeSteps);
+  if(containState(osTripped)){
+    nexTripAlert();
+    motor.reset();
+    return;
+  }
+  Serial.println(msgReady);
+  updateStatusTxt(msgReady);
+  nexEnableScreen();
+  if(debugPrint) Serial.println("Syringe Filled");
+}
+
 void prime(){
   if(!containState(osZeroed)){
     Serial.println("Must ZERO before PRIME");
@@ -303,10 +368,7 @@ void prime(){
     if(containState(osTripped)) return;
     if(debugPrint) Serial.println("Syringe empty");
 
-    switchValve(vpInlet);
-    safeMoveTo(primeSteps);  //strokeLimitSteps);
-    if(containState(osTripped)) return;
-    if(debugPrint) Serial.println("Syringe Filled");
+    fillSyringe();
   }
   includeState(osPrimed);
   updateErrorTxt(" ");
@@ -319,18 +381,20 @@ void prime(){
 
 void updateDosingParams(){
   primeSteps = primeVol / syringeVol * syringeInfo[syringe].stroke * stPmm;
-  if(debugPrint) Serial.printf("Prime steps: %ul\n", primeSteps);
+  if(debugPrint) Serial.printf("Prime steps: %u\n", primeSteps);
 
   float tmpProgress = (100.0f * (float)(strokeLimitSteps - motor.currentPosition())) / strokeLimitSteps;
   if(tmpProgress > 100) {tmpProgress = 100;}
   else if(tmpProgress < 0) {tmpProgress = 0;}
   updateProgressbarHome((uint32_t)tmpProgress);
 
-  motor.highSpeed_mm_s = (_maxSpeed * highSpeedPct) / 100.0f;
+  motor.highSpeed_mm_s = (_maxSpeed * highSpeedPct + 0.5) / 100.0f;
+  if (motor.highSpeed_mm_s == 0) motor.highSpeed_mm_s = 1;
   if(debugPrint) Serial.printf("High speed = %d mm/s\n", motor.highSpeed_mm_s);
   motor.highSpeedSettings();
 
-  motor.highSpeed_mm_s = (_maxSpeed * highSpeedPct) / 100.0f;
+  motor.lowSpeed_mm_s = (_maxSpeed * lowSpeedPct + 0.5) / 100.0f;
+  if (motor.lowSpeed_mm_s == 0) motor.lowSpeed_mm_s = 1;
   if(debugPrint) Serial.printf("Low speed = %d mm/s\n", motor.lowSpeed_mm_s);
 
   if(debugPrint) Serial.printf("Syringe volume: %.3f\n", syringeVol);
@@ -358,7 +422,12 @@ void settingsDone(float tmpDispenseVol, uint32_t tmpPrimeVol, uint32_t tmpPrimeC
     if(debugPrint) Serial.println("Saving config");
 
     if(tmpDispenseVol != dispenseVol) {
-      dispenseVol = tmpDispenseVol;
+      if(tmpDispenseVol > 0){
+        dispenseVol = tmpDispenseVol;
+      }
+      else{
+        dispenseVol = defaultDispenseVolume;
+      }
       if(debugPrint) Serial.println("Saving dispense volume");
       if(configStorage.putFloat(configNameDispenseVolume, dispenseVol) == 0){
         Serial.println("Error saving dispense volume");
@@ -366,7 +435,13 @@ void settingsDone(float tmpDispenseVol, uint32_t tmpPrimeVol, uint32_t tmpPrimeC
     }
 
     if(tmpPrimeVol != primeVol) {
-      primeVol = tmpPrimeVol;
+    // check for illogical input values
+      if(tmpPrimeVol > 0){
+        primeVol = tmpPrimeVol;
+      }
+      else{
+        primeVol = defaultPrimeVolume;
+      }
       if(debugPrint) Serial.println("Saving priming volume");
       if(configStorage.putULong(configNamePrimeVolume, primeVol) == 0){
         Serial.println("Error saving volume");
@@ -374,7 +449,12 @@ void settingsDone(float tmpDispenseVol, uint32_t tmpPrimeVol, uint32_t tmpPrimeC
     }
 
     if(tmpPrimeCycles != primeCycles) {
-      primeCycles = tmpPrimeCycles;
+      if(tmpPrimeCycles > 0){
+        primeCycles = tmpPrimeCycles;
+      }
+      else{
+        primeCycles = defaultPrimeCycles;
+      }
       if(debugPrint) Serial.println("Saving prime cycles");
       if(configStorage.putUShort(configNamePrimeCycles, primeCycles) == 0){
         Serial.println("Error saving prime cycles");
@@ -382,7 +462,12 @@ void settingsDone(float tmpDispenseVol, uint32_t tmpPrimeVol, uint32_t tmpPrimeC
     }
 
     if(tmpHighSpeed != highSpeedPct) {
-      highSpeedPct = tmpHighSpeed;
+      if(tmpHighSpeed > 0){
+        highSpeedPct = tmpHighSpeed;
+      }
+      else{
+        highSpeedPct = defaultHighSpeedPct;
+      }
       if(debugPrint) Serial.println("Saving high speed");
       if(configStorage.putUShort(configNameHighSpeed, highSpeedPct) == 0){
         Serial.println("Error saving high speed");
@@ -390,7 +475,12 @@ void settingsDone(float tmpDispenseVol, uint32_t tmpPrimeVol, uint32_t tmpPrimeC
     }
 
     if(tmpLowSpeed != lowSpeedPct) {
-      lowSpeedPct = tmpLowSpeed;
+      if(tmpLowSpeed > 0){
+        lowSpeedPct = tmpLowSpeed;
+      }
+      else{
+        lowSpeedPct = tmpLowSpeed;
+      }
       if(debugPrint) Serial.println("Saving low speed");
       if(configStorage.putUShort(configNameLowSpeed, lowSpeedPct) == 0){
         Serial.println("Error saving low speed");
@@ -405,22 +495,6 @@ void settingsDone(float tmpDispenseVol, uint32_t tmpPrimeVol, uint32_t tmpPrimeC
   updateDosingParams();
 }
 
-// empty the syringe by moving plunger up to zero volume
-void emptySyringe(){
-  if(containState(osTripped)) {
-    Serial.println("Cannot empty syringe because state=TRIP");
-    return;
-  }
-  nexDisableScreen();
-  Serial.println(msgEmptying);
-  updateStatusTxt(msgEmptying);
-  switchValve(vpOutlet);
-  if(debugPrint) Serial.println("valve to outlet");
-  safeMoveTo(0);
-  Serial.println(msgReady);
-  updateStatusTxt(msgReady);
-  nexEnableScreen();
-}
 
 void moveUp(){
   if (debugPrint) Serial.println("Moving plunger up.");
@@ -429,7 +503,10 @@ void moveUp(){
     Serial.println("Cannot move because state=TRIP");
     return;
   }
+  // Hack to clear internal state of AccelSteppr
+  motor.setCurrentPosition(motor.currentPosition());
   motor.lowSpeedSettings();
+  if(debugPrint)  Serial.printf("MaxSpeed = %.3f\n", motor.maxSpeed());
   displayDispenseVolume = false;
   safeMoveTo(0);
 }
@@ -440,13 +517,15 @@ void moveDown(){
     Serial.println("Cannot move because state=TRIP");
     return;
   }
+  // Hack to clear internal state of AccelSteppr
+  motor.setCurrentPosition(motor.currentPosition());
   motor.lowSpeedSettings();
   displayDispenseVolume = false;
   safeMoveTo(strokeLimitSteps);
 }
 
 void stopMove(){
-  if (debugPrint) Serial.println("Up_down button pop callback");
+//  if (debugPrint) Serial.println("Up_down button pop callback");
   motor.running = false;
 }
 
@@ -496,7 +575,7 @@ void dispense(){
   if (motor.currentPosition() != primeSteps) {
     switchValve(vpInlet);
     updateStatusTxt(msgFilling);
-    safeMoveTo(strokeLimitSteps);
+    safeMoveTo(primeSteps);
   }
   if(containState(osTripped)) return;  // do nothing if tripped
 
@@ -617,6 +696,7 @@ void setup(){
 
   nexInit(115200);
   Serial.begin(115200);
+  sendCommand("bkcmd=0");
 
   // Print CPU0 reset reason on Nextion
   updateErrorTxt(reset_reason());
@@ -642,33 +722,9 @@ void setup(){
 
   valve.attach(servo); //enable servo
 
-  updateErrorTxt("Press zero to start");
-  updateStatusTxt("");
+  updateStatusTxt("Press zero to start");
   updateVolumeTxt("-----");
 
-  /*
-  if(debugPrint) Serial.println(msgZeroing);
-  motor.lowSpeedSettings();
-  // Plunger zeroing
-  if(!checkZero()){
-    Serial.println("Error finding zero");
-    nexTripAlert();
-    return;
-  };
-  updateProgressbar0(100); //show slider value as zero
-  updateProgressbar2(100); //Progress bar empty P1
-  Serial.println("Homing Completed");
-
-  //reset motor settings after position update
-  motor.highSpeedSettings();
-  Serial.println("Setup done");
-  updateErrorTxt("Please prime   syringe"); //Top Line note spacing
-  updateStatusTxt(msgNotReady); //Status
-
-  excludeState(osBusy);
-  nexEnableScreen();
-
-  */
   if(debugPrint) {
     Serial.println("Debug messages on");
   }
@@ -836,10 +892,12 @@ void loop() {
   else if (currentMode == msTitrate){
     if (dosingButtonState == 0){
       displayDispenseVolume = true;
+      // Hack to clear internal state of AccelSteppr
+      motor.setCurrentPosition(motor.currentPosition());
       safeMoveTo(0);
     }
-    else{
-      stopMove();
-    }
+//    else if(){
+//      stopMove();
+//    }
   }
 }

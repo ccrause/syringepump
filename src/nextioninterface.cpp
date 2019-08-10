@@ -95,32 +95,32 @@ NexButton dispenseButton(0, 10, "b4");  // Empty Syringe
 
 // Page 1 Dispense
 NexText statusTextP1(1, 1, "t0");     // Status Text Ready, Running, Filling. Error
-NexText errMsgP1(1, 2, "t1");        // Error Display 28 Carracters max
+NexText errMsgP1(1, 2, "t1");         // Error Display 28 Carracters max
 NexText volumeTextP1(1, 3, "t2");     // Current Syringe Volume
 NexProgressBar progressBarP1(1, 4, "j0"); //Syringe Slider 0=100% Full
 NexDSButton valvePositionP1(1, 5, "bt0"); // Actual Valve Position 0=IN 1=Out
-NexButton homeButtonP1(1, 6, "b0");  // Empty Syringe
-NexButton emptyButtonP1(1, 7, "b1");  // Empty Syringe
+NexButton homeButtonP1(1, 6, "b0");
+NexButton emptyButtonP1(1, 7, "b1");
 
 // Page 2 Titrate
 NexText statusTextP2(2, 1, "t0");     // Status Text Ready, Running, Filling. Error
-NexText errMsgP2(2, 2, "t1");        // Error Display 28 Carracters max
+NexText errMsgP2(2, 2, "t1");         // Error Display 28 Carracters max
 NexText volumeTextP2(2, 3, "t2");     // Current Syringe Volume
 NexProgressBar progressBarP2(2, 4, "j0"); //Syringe Slider 0=100% Full
 NexDSButton valvePositionP2(2, 5, "bt0"); // Actual Valve Position 0=IN 1=Out
-NexButton homeButtonP2(2, 6, "b0");   // Start zeroing of plunger
-NexButton zeroTotalButton(2, 7, "b2");   // Start zeroing of plunger
-NexDSButton rateSwitch(2, 8, "bt1");   // Start zeroing of plunger
+NexButton homeButtonP2(2, 6, "b0");
+NexButton zeroTotalButton(2, 7, "b2");    // Zero total volume titrated
+NexDSButton rateSwitch(2, 8, "bt1");      // High/low speed for titration
 
 // Page 3 Settings
-NexText statusTextP3(3, 1, "t0");     // Status Text Ready, Running, Filling. Error
+NexText statusTextP3(3, 1, "t0");    // Status Text Ready, Running, Filling. Error
 NexText errMsgP3(3, 2, "t1");        // Error Display 28 Carracters max
-NexButton homeButtonP3(3, 3, "b0"); // Home Page button update the values for the syringe by reading the vairious values
-NexButton manualButtonP3(3, 4, "b1"); //Page1 not used in mcu
+NexButton homeButtonP3(3, 3, "b0");  // Home Page button update the values for the syringe by reading the vairious values
+NexButton manualButtonP3(3, 4, "b1");
 NexText dispenseVolumeText(3, 5, "t2"); //Set Volume
 NexNumber primeVolumeNumber(3, 6, "n0"); //global vairable to limit stkokeNumber must be updated on startup
 NexNumber primeCyclesNumber(3, 7, "n1"); //Number of cycles to prime
-NexNumber highSpeedNumber(3, 8, "n2"); // % of max speed
+NexNumber highSpeedNumber(3, 8, "n2");   // % of max speed
 NexNumber lowSpeedNumber(3, 9, "n3"); // % of max speed
 NexNumber nexMaxVolLimit(3, 10, "va0"); //global variable to limit stkokeNumber must be updated on startup
 
@@ -259,13 +259,13 @@ void downButtonPushed(void *prt){
 }
 
 void up_downButtonReleased(void *prt){
-  if (debugPrint) Serial.println("up_downButtonReleased");
+  /*if (debugPrint)*/ Serial.println("up_downButtonReleased");
   stopMove();
 }
 
 void refillButtonReleased(void *prt){
   if (debugPrint) Serial.println("refillButtonReleased");
-
+  fillSyringe();
 }
 
 void resetSystemButtonReleased(void *ptr_) {
@@ -345,10 +345,42 @@ void updateErrorTxt(const char err[]){
   errMsgP4.setText(err);
 }
 
+void updateErrorTxt0(const char txt[]){
+  errMsgP0.setText(txt);
+}
+
+void updateErrorTxt1(const char txt[]){
+  errMsgP1.setText(txt);
+}
+
+void updateErrorTxt2(const char txt[]){
+  errMsgP2.setText(txt);
+}
+
+void updateErrorTxt4(const char txt[]){
+  errMsgP4.setText(txt);
+}
+
 void updateVolumeTxt(const char txt[]){
   volumeTextP0.setText(txt);
   volumeTextP1.setText(txt);
   volumeTextP2.setText(txt);
+  volumeTextP4.setText(txt);
+}
+
+void updateVolumeTxt0(const char txt[]){
+  volumeTextP0.setText(txt);
+}
+
+void updateVolumeTxt1(const char txt[]){
+  volumeTextP1.setText(txt);
+}
+
+void updateVolumeTxt2(const char txt[]){
+  volumeTextP2.setText(txt);
+}
+
+void updateVolumeTxt4(const char txt[]){
   volumeTextP4.setText(txt);
 }
 
@@ -498,29 +530,29 @@ uint32_t getPrimeVolume(void) {
 }
 
 uint32_t getHighSpeed(void) {
-  if(debugPrint) Serial.println("Get speed% from Nextion");
+  if(debugPrint) Serial.println("Get high speed% from Nextion");
 
   uint32_t temp = 0;
   if(!highSpeedNumber.getValue(&temp)) {
-    Serial.println("Error reading speed.");
+    Serial.println("Error reading high speed.");
     return 0;
   }
   else{
-    if(debugPrint) Serial.printf("Speed = %d%%\n", temp);
+    if(debugPrint) Serial.printf("High speed = %d%%\n", temp);
     return temp;
   }
 }
 
 uint32_t getLowSpeed(void) {
-  if(debugPrint) Serial.println("Get speed% from Nextion");
+  if(debugPrint) Serial.println("Get low speed% from Nextion");
 
   uint32_t temp = 0;
   if(!lowSpeedNumber.getValue(&temp)) {
-    Serial.println("Error reading speed.");
+    Serial.println("Error reading low speed.");
     return 0;
   }
   else{
-    if(debugPrint) Serial.printf("Speed = %d%%\n", temp);
+    if(debugPrint) Serial.printf("Low speed = %d%%\n", temp);
     return temp;
   }
 }
