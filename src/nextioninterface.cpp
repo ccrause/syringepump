@@ -5,75 +5,6 @@
 
 #include <errno.h>
 
-/*
-//Pages
-NexPage page0 = NexPage(0, 0, "page0"); //Start Up Home screen
-NexPage page1 = NexPage(1, 0, "page1"); // Dispense Screen
-NexPage page2 = NexPage(2, 0, "page2"); // Titrate Screen
-NexPage page3 = NexPage(3, 0, "page3"); // Settings Page
-NexPage page4 = NexPage(3, 0, "page3"); // Manual Control Page
-NexPage page5 = NexPage(3, 0, "page3"); // Trip and Reset Page
-
-// Page 0 (Start / Home)
-NexText statusText = NexText(0, 1, "t0"); //Status Text Ready, Running, Filling. Error
-NexText errMsg0 = NexText(0, 2, "t1"); //Error Display 28 Carracters max
-NexText volumeText = NexText(0, 3, "t2"); //Current Syringe Volume
-NexProgressBar progressBar = NexProgressBar(0, 4, "j0"); //Syringe Slider 0=100% Full
-NexDSButton valvePosition0 = NexDSButton(0, 5, "bt0"); // Actual Valve Position 0=IN 1=Out
-NexButton zeroButton = NexButton(0, 6, "b0"); //Zero calibration
-//NexButton settingsButton = NexButton(0, 7, "b1"); //Settings Button
-NexButton primeButton = NexButton(0, 8, "b2"); //Prime Syringe
-NexButton titrateMode = NexButton(0, 9, "b3"); //Navigate to titrate page
-NexButton dispenseMode = NexButton(0, 10, "b4"); //Navigate to titrate page
-
-// Page 1 (Dispense)
-NexText statusTextP1 = NexText(1, 1, "t0"); //Status Text Ready, Running, Filling. Error
-NexText errMsgP1 = NexText(1, 2, "t1"); //Error Display 28 Carracters max
-NexText volumeTextP1 = NexText(1, 3, "t2"); //Current Syringe Volume
-NexProgressBar progressBarP1 = NexProgressBar(1, 4, "j0"); //Syringe Slider 0=100% Full
-NexDSButton valvePositionP1 = NexDSButton(1, 5, "bt0"); // Actual Valve Position 0=IN 1=Out
-//NexButton homeButtonP1 = NexButton(1, 6, "b0"); // home / start page
-NexButton emptyButton = NexButton(1, 7, "b1"); // Empty Syringe
-
-//Page 2 (Titrate)
-NexText statusTextP2 = NexText(2, 1, "t0"); //Status Text Ready, Running, Filling. Error
-NexText errMsgP2 = NexText(2, 2, "t1"); //Error Display 28 Carracters max
-NexText volumeTextP2 = NexText(2, 3, "t2"); //Current Syringe Volume
-NexProgressBar progressBarP2 = NexProgressBar(2, 4, "j0"); //Syringe Slider 0=100% Full
-NexDSButton valvePositionP2 = NexDSButton(2, 5, "bt0"); // Actual Valve Position 0=IN 1=Out
-//NexButton homeButtonP2 = NexButton(2, 6, "b0"); // home / start page
-NexSwitch rateSwitch = NexSwitch(2, 7, "b1"); //Dispense rate slow or fast
-NexButton zeroButton = NexButton(2, 8, "b1"); //Zero Totalizer and refill syringe
-
-//Page 3 (Settings)
-NexText statusTextP3 = NexText(3, 1, "t0"); //Status Text Ready, Running, Filling. Error
-NexText errMsgP3 = NexText(3, 2, "t1"); //Error Display 28 Characters max
-//NexButton homeButtonP3 = NexButton(3, 3, "b0"); // home / start page
-//NexButton manualButtonP3 = NexButton(3, 4, "b1"); // Manual Page
-NexText volumeSettingText = NexText(3, 5, "t2"); //Set Volume
-NexNumber strokeNumber = NexNumber(3, 6, "n0"); //Working Volume mL
-NexNumber primeCyclesNumber = NexNumber(3, 7, "n1"); //Number of cycles to prime
-NexNumber speedNumber = NexNumber(3, 8, "n2"); // % of max speed HIGH Speed
-NexNumber lowSpeedNumber = NexNumber(3, 9, "n3"); // % of max speed LOW Speed
-NexNumber nexMaxVolLimit(3, 10, "va0"); //Max syringe volume update at startup
-
-//Page 4 (manual control)
-NexText statusTextP4 = NexText(4, 1, "t0"); //Status Text Ready, Running, Filling. Error
-NexText errMsgP4 = NexText(4, 2, "t1"); //Error Display 28 Carracters max
-NexText volumeTextP4 = NexText(4, 3, "t2"); //Current Syringe Volume
-NexProgressBar progressBarP4 = NexProgressBar(4, 4, "j0"); //Syringe Slider 0=100% Full
-NexDSButton valvePositionP4 = NexDSButton(4, 5, "bt0"); // Actual Valve Position 0=IN 1=Out
-//NexButton homeButtonP4 = NexButton(4, 6, "b0"); // home / start page
-//NexButton settingsButtonP4 = NexButton(4, 7, "b1"); // Settings Page
-NexButton downButton = NexButton(4, 8, "b2"); // Move Syringe Down
-NexButton upButton = NexButton(4, 9, "b3"); // Move syringe UP
-NexButton refillButton = NexButton(4, 10, "b4"); // Refill syringe upto set value
-NexDSButton switchValveButton = NexDSButton(4, 11, "bt1"); // Switch Valve Position 0=In
-
-//Page 5 (TRIP Screen
-NexButton resetSystemButton = NexButton(5, 1, "b0"); //Reset/Restart ESP32*/
-
-
 NexPage page0(0, 0, "page0");       // Startup / home Screen
 NexPage page1(1, 0, "page1");       // Dispense screen
 NexPage page2(2, 0, "page2");       // Titrate creen
@@ -216,6 +147,11 @@ void titrateButtonReleased(void *ptr){
     recvRetCommandFinished(100);
     errMsgP0.setText("Prime first");
   }
+  else{
+    progressBarP2.setValue((uint32_t)currentPlungerPosition);
+    dtostrf(currentSyringeVolume, 5, 3, buffer);
+    volumeTextP2.setText(buffer);
+  }
 }
 
 void dispenseButtonReleased(void *ptr){
@@ -225,11 +161,19 @@ void dispenseButtonReleased(void *ptr){
     recvRetCommandFinished(100);
     errMsgP0.setText("Prime first");
   }
+  else{
+    progressBarP1.setValue((uint32_t)currentPlungerPosition);
+    dtostrf(currentSyringeVolume, 5, 3, buffer);
+    volumeTextP1.setText(buffer);
+  }
 }
 
 void homeButtonReleased(void *ptr){
   if (debugPrint) Serial.println("homeButtonReleased");
   homeMode();
+  progressBarP0.setValue((uint32_t)currentPlungerPosition);
+  dtostrf(currentSyringeVolume, 5, 3, buffer);
+  volumeTextP0.setText(buffer);
 }
 
 // empty the syringe by moving plunger up to zero volume
@@ -321,6 +265,9 @@ bool checkSettings(void){
 void manualButtonReleased(void *ptr) {
   if (debugPrint) Serial.println("manualButtonReleased");
   manualMode();
+  progressBarP4.setValue((uint32_t)currentPlungerPosition);
+  dtostrf(currentSyringeVolume, 5, 3, buffer);
+  volumeTextP4.setText(buffer);
 }
 
 // First read settings
@@ -329,6 +276,9 @@ void homeButtonP3Released(void *prt_){
   if (debugPrint) Serial.println("homeButtonP3Released");
   if(checkSettings()){
     homeMode();
+    progressBarP0.setValue((uint32_t)currentPlungerPosition);
+    dtostrf(currentSyringeVolume, 5, 3, buffer);
+    volumeTextP0.setText(buffer);
   }
 }
 

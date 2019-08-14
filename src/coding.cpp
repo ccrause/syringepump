@@ -65,6 +65,7 @@ bool displayDispenseVolume = false;
 
 bool debugPrint = true;
 bool debugTMC = false;
+bool noNexPassFailMsg = true;
 
 // -------------------------------------------Servo----------------------------------------------------
 Servo valve;
@@ -78,6 +79,8 @@ char buf[30] = {0};
 // Read/write config parameters
 Preferences configStorage;
 
+float currentPlungerPosition, currentSyringeVolume;
+
 void updateDosingParams();
 void processSerial();
 
@@ -89,34 +92,38 @@ void resetAll() {
 }
 
 void safeMoveToUpdateDisplay(float* deltaVolume){
-  float progress = (100.0f * (float)(strokeLimitSteps - motor.currentPosition())) / strokeLimitSteps;
-  if(progress > 100){
-    progress = 100;
+  currentPlungerPosition = (100.0f * (float)(strokeLimitSteps - motor.currentPosition())) / strokeLimitSteps;
+  if(currentPlungerPosition > 100){
+    currentPlungerPosition = 100;
   }
-  else if(progress < 0){
-    progress = 0;
+  else if(currentPlungerPosition < 0){
+    currentPlungerPosition = 0;
   }
 
-  float Vol = syringeVol * (100.0f - progress) / 100.0f;
-  dtostrf(Vol, 5, 3, buf);
+  currentSyringeVolume = syringeVol * (100.0f - currentPlungerPosition) / 100.0f;
+  dtostrf(currentSyringeVolume, 5, 3, buf);
 
-  if(currentMode == msDispense){
-    updateProgressbarHome((uint32_t)progress);
+  if(currentMode == msHome){
+    updateProgressbarHome((uint32_t)currentPlungerPosition);
+    updateVolumeTxt0(buf);
+  }
+  else if(currentMode == msDispense){
+    updateProgressbarDispense((uint32_t)currentPlungerPosition);
     updateVolumeTxt1(buf);
   }
   else if (currentMode == msTitrate){
-    updateProgressbarTitrate((uint32_t)progress);
+    updateProgressbarTitrate((uint32_t)currentPlungerPosition);
     updateVolumeTxt2(buf);
   }
   else if (currentMode == msManual){
-    updateProgressbarManual((uint32_t)progress);
+    updateProgressbarManual((uint32_t)currentPlungerPosition);
     updateVolumeTxt4(buf);
   }
 
   // update Volume display
   if(displayDispenseVolume){
-    progress = (100.0f * (float)(primeSteps - motor.currentPosition())) / dispenseSteps;
-    *deltaVolume = dispenseCycleVol * progress / 100.0f;
+    currentPlungerPosition = (100.0f * (float)(primeSteps - motor.currentPosition())) / dispenseSteps;
+    *deltaVolume = dispenseCycleVol * currentPlungerPosition / 100.0f;
     dtostrf(totalDispensedVol + *deltaVolume, 5, 3, buf);
     switch(currentMode){
       case msDispense:{
@@ -177,8 +184,8 @@ void safeMoveTo(long newpos){
     if(currentMode == msTitrate){
       if(digitalRead(dispenseButton) != 0){
         motor.running = false;
+        if(debugPrint) Serial.println("Titrate button released");
       }
-      if(debugPrint) Serial.println("Titrate button released");
     }
     else if (currentMode == msManual){
       processNexMessages();  // wait for button release event
@@ -247,19 +254,18 @@ void safeRun(){
       Serial.printf("%.4d\n", driver.TSTEP());
     }
 
-
     if(containState(osZeroed) && (nexSerial.availableForWrite() > 20)) {
-      double progress = (100.0 * (float)(strokeLimitSteps - motor.currentPosition())) / strokeLimitSteps;
-      if(progress > 100){
-        progress = 100;
+      currentPlungerPosition = (100.0 * (float)(strokeLimitSteps - motor.currentPosition())) / strokeLimitSteps;
+      if(currentPlungerPosition > 100){
+        currentPlungerPosition = 100;
       }
-      else if(progress < 0){
-        progress = 0;
+      else if(currentPlungerPosition < 0){
+        currentPlungerPosition = 0;
       }
 
-      float Vol = syringeVol * (100.0f - progress) / 100.0f;
-      updateProgressbarManualNoAck(progress);
-      updateVolumeTxt4NoAck(Vol);
+      currentSyringeVolume = syringeVol * (100.0f - currentPlungerPosition) / 100.0f;
+      updateProgressbarManualNoAck(currentPlungerPosition);
+      updateVolumeTxt4NoAck(currentSyringeVolume);
     }
   }
   if (debugPrint) Serial.println("Stopped running");
@@ -357,6 +363,7 @@ void prime(){
   nexDisableScreen();
   Serial.println(msgPriming);
   motor.highSpeedSettings();
+  displayDispenseVolume = false;
 
   updateErrorTxt("Please Wait");
   updateStatusTxt(msgPriming);
@@ -896,8 +903,5 @@ void loop() {
       motor.setCurrentPosition(motor.currentPosition());
       safeMoveTo(0);
     }
-//    else if(){
-//      stopMove();
-//    }
   }
 }

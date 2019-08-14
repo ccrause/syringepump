@@ -3,6 +3,8 @@
 
 #include "Nextion.h"
 
+extern float currentPlungerPosition, currentSyringeVolume;
+
 // Functional interface to Nextion GUI elements
 void processNexMessages();
 void updateStatusTxt(const char status[]);
@@ -22,6 +24,7 @@ void updateVolumeTxt4NoAck(float vol);
 
 void updateValveDisplay(uint8_t pos);
 void updateProgressbarHome(uint32_t pos);
+void updateProgressbarDispense(uint32_t pos);
 void updateProgressbarTitrate(uint32_t pos);
 void updateProgressbarTitrateNoAck(uint32_t pos);
 void updateProgressbarManual(uint32_t pos);

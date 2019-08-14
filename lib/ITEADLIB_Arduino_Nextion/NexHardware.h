@@ -18,6 +18,8 @@
 #include "NexConfig.h"
 #include "NexTouch.h"
 
+extern bool noNexPassFailMsg;
+
 /**
  * @addtogroup CoreAPI
  * @{
@@ -50,9 +52,9 @@ void nexLoop(NexTouch *nex_listen_list[]);
  * @}
  */
 
-bool recvRetNumber(uint32_t *number, uint32_t timeout = 200);
-uint16_t recvRetString(char *buffer, uint16_t len, uint32_t timeout = 200);
+bool recvRetNumber(uint32_t *number, uint32_t timeout = 100);
+uint16_t recvRetString(char *buffer, uint16_t len, uint32_t timeout = 100);
 void sendCommand(const char* cmd);
-bool recvRetCommandFinished(uint32_t timeout = 200);
+bool recvRetCommandFinished(uint32_t timeout = 100);
 
 #endif /* #ifndef __NEXHARDWARE_H__ */

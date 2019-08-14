@@ -184,8 +184,11 @@ void sendCommand(const char* cmd)
  * @retval false - failed.
  *
  */
-bool recvRetCommandFinished(uint32_t timeout)
-{
+bool recvRetCommandFinished(uint32_t timeout){
+  if(noNexPassFailMsg){
+    return true;
+  }
+  else{
     bool ret = false;
     uint8_t temp[4] = {0};
 
@@ -214,6 +217,7 @@ bool recvRetCommandFinished(uint32_t timeout)
     }
 
     return ret;
+  }
 }
 
 
@@ -231,8 +235,14 @@ bool nexInit(int baud)
     dbSerialBegin(baud);
     nexSerial.begin(9600);
     sendCommand("");
-    sendCommand("bkcmd=1");
-    ret1 = recvRetCommandFinished();
+    if(noNexPassFailMsg){
+      sendCommand("bkcmd=0");
+      ret1 = true;
+    }
+    else{
+      sendCommand("bkcmd=1");
+      ret1 = recvRetCommandFinished();
+    }
     sendCommand("page 0");
     ret2 = recvRetCommandFinished();
     return ret1 && ret2;
