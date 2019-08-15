@@ -189,7 +189,7 @@ void rateSwitchButtonReleased(void *prt){
 
 void zeroTotalButtonReleased(void *prt){
   if (debugPrint) Serial.println("zeroTotalButtonReleased");
-  //
+  doZeroTitrateTotal();
 }
 
 void upButtonPushed(void *prt){

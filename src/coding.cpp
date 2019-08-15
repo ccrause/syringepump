@@ -34,6 +34,7 @@
 enum OpState {osUnInitialized=0,  // startup state
               osZeroed=1,         // zeroing completed
               osPrimed=2,         // prime cycle completed
+              osFilling=4,        // busy filling - used for titrate refill display
               osTripped=128};     // motor is tripped
 OpState currentState = osUnInitialized;
 #define includeState(state) currentState = (OpState)(currentState | state)
@@ -79,7 +80,7 @@ char buf[30] = {0};
 // Read/write config parameters
 Preferences configStorage;
 
-float currentPlungerPosition, currentSyringeVolume;
+float currentPlungerPosition, currentSyringeVolume, deltaVol;
 
 void updateDosingParams();
 void processSerial();
@@ -170,7 +171,10 @@ void safeMoveTo(long newpos){
   }
   motor.moveToPosition = true;
   motor.running = true;
-  float deltaVol = 0;
+
+  // only zero if in dispense mode
+  // titrate mode does a manual zero
+  if(currentMode == msDispense) deltaVol = 0;
 
   if(debugTMC){
     Serial.printf("SGT = %d, Accel = %d\n", driver.sgt(), motor.getAcceleration());
@@ -181,7 +185,7 @@ void safeMoveTo(long newpos){
   while(motor.running && (motor.trip == false)){
     vTaskDelay(50 / portTICK_PERIOD_MS);
 
-    if(currentMode == msTitrate){
+    if(currentMode == msTitrate  && !containState(osFilling)){
       if(digitalRead(dispenseButton) != 0){
         motor.running = false;
         if(debugPrint) Serial.println("Titrate button released");
@@ -208,7 +212,7 @@ void safeMoveTo(long newpos){
     }
   }
   safeMoveToUpdateDisplay(&deltaVol);
-  totalDispensedVol += deltaVol;
+  if(currentMode == msDispense) totalDispensedVol += deltaVol;
 
   // Error diagnostics
   if(motor.trip == true){
@@ -338,6 +342,7 @@ void fillSyringe(){
     Serial.println("Cannot fill syringe because state=TRIP");
     return;
   }
+  includeState(osFilling);
   nexDisableScreen();
   Serial.println(msgFilling);
   updateStatusTxt(msgFilling);
@@ -352,6 +357,7 @@ void fillSyringe(){
   Serial.println(msgReady);
   updateStatusTxt(msgReady);
   nexEnableScreen();
+  excludeState(osFilling);
   if(debugPrint) Serial.println("Syringe Filled");
 }
 
@@ -543,11 +549,22 @@ void settingMode(){
 bool titrateMode(){
   if(containState(osPrimed)){
     currentMode = msTitrate;
+    totalDispensedVol = 0;
     return true;
   }
   else{
     return false;
   }
+}
+
+void doZeroTitrateTotal(){
+  // reset speed to 0
+  motor.setCurrentPosition(motor.currentPosition());
+  displayDispenseVolume = false;
+  fillSyringe();
+  switchValve(vpOutlet);
+  totalDispensedVol = 0;
+  updateErrorTxt2("");
 }
 
 bool dispenseMode(){
@@ -902,6 +919,12 @@ void loop() {
       // Hack to clear internal state of AccelSteppr
       motor.setCurrentPosition(motor.currentPosition());
       safeMoveTo(0);
+      if (motor.currentPosition() == 0){
+        totalDispensedVol += deltaVol;
+        displayDispenseVolume = false;
+        fillSyringe();
+        switchValve(vpOutlet);
+      }
     }
   }
 }

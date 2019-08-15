@@ -16,6 +16,7 @@ void moveDown();
 void stopMove();
 void settingMode();
 bool titrateMode();
+void doZeroTitrateTotal();
 bool dispenseMode();
 void manualMode();
 void homeMode();
