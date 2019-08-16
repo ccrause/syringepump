@@ -296,6 +296,8 @@ void fillSyringe(){
   updateStatusTxt(msgFilling);
   switchValve(vpInlet);
   if(debugPrint) Serial.println("valve to inlet");
+  // Reset previous speed
+  motor.setCurrentPosition(motor.currentPosition());
   safeMoveTo(primeSteps);
   if(containState(osTripped)){
     nexTripAlert();
@@ -325,6 +327,8 @@ void prime(){
   totalDispensedVol = 0;
   for (byte i = 0; i < primeCycles; i++){
     switchValve(vpOutlet);
+    // Reset previous speed
+    motor.setCurrentPosition(motor.currentPosition());
     safeMoveTo(0);
     if(containState(osTripped)) return;
     if(debugPrint) Serial.println("Syringe empty");
