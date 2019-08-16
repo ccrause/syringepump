@@ -64,7 +64,7 @@ long dispenseSteps = 0;  // stroke per dispense cycle
 uint32_t primeCycles; //number of times the syringe cycles
 bool displayDispenseVolume = false;
 
-bool debugPrint = true;
+bool debugPrint = false;
 bool debugTMC = false;
 bool noNexPassFailMsg = true;
 
@@ -81,6 +81,7 @@ char buf[30] = {0};
 Preferences configStorage;
 
 float currentPlungerPosition, currentSyringeVolume, deltaVol;
+bool titrateSlowSpeed = false;
 
 void updateDosingParams();
 void processSerial();
@@ -173,7 +174,7 @@ void safeMoveTo(long newpos){
   motor.running = true;
 
   // only zero if in dispense mode
-  // titrate mode does a manual zero
+  // titrate mode does a manual zero from button press
   if(currentMode == msDispense) deltaVol = 0;
 
   if(debugTMC){
@@ -211,7 +212,8 @@ void safeMoveTo(long newpos){
       Serial.printf("%.4d\n", driver.TSTEP());
     }
   }
-  safeMoveToUpdateDisplay(&deltaVol);
+
+  if(containState(osZeroed)) safeMoveToUpdateDisplay(&deltaVol);
   if(currentMode == msDispense) totalDispensedVol += deltaVol;
 
   // Error diagnostics
@@ -229,59 +231,6 @@ void safeMoveTo(long newpos){
       Serial.println("safeMove didn't complete distance.");
       Serial.printf("Current position: %ld\n", motor.currentPosition());
     }
-  }
-}
-
-void safeRun(){
-  // Reset trip counter to prevent spurious trip when reversing direction
-  motor.stepper_count = 0;
-  motor.moveToPosition = false;
-  motor.running = true;
-
-  if(debugTMC){
-    Serial.printf("SGT = %d\n", driver.sgt());
-    Serial.println("SG    | Current|  Speed | TSTEP");
-  }
-
-  // Wait until move is stopped from pop event
-  while(motor.running && (motor.trip == false)){
-    vTaskDelay(50 / portTICK_PERIOD_MS);
-    processNexMessages();
-    processSerial();  // in case a serial stop command is sent
-
-    if(debugTMC && (Serial.availableForWrite() > 40)){
-      uint32_t drv_status = driver.DRV_STATUS();
-      // Split out stallGuard value
-      Serial.printf("%.4d  |  ", (drv_status & SG_RESULT_bm)>>SG_RESULT_bp);
-      Serial.printf("%.4d  |  ", rms_current((drv_status & CS_ACTUAL_bm)>>CS_ACTUAL_bp));
-      Serial.printf("%.4d  |  ", (int) motor.speed());
-      Serial.printf("%.4d\n", driver.TSTEP());
-    }
-
-    if(containState(osZeroed) && (nexSerial.availableForWrite() > 20)) {
-      currentPlungerPosition = (100.0 * (float)(strokeLimitSteps - motor.currentPosition())) / strokeLimitSteps;
-      if(currentPlungerPosition > 100){
-        currentPlungerPosition = 100;
-      }
-      else if(currentPlungerPosition < 0){
-        currentPlungerPosition = 0;
-      }
-
-      currentSyringeVolume = syringeVol * (100.0f - currentPlungerPosition) / 100.0f;
-      updateProgressbarManualNoAck(currentPlungerPosition);
-      updateVolumeTxt4NoAck(currentSyringeVolume);
-    }
-  }
-  if (debugPrint) Serial.println("Stopped running");
-
-  // Need to reset AccelStepper state so that using .run() doesn't give problems
-  motor.setCurrentPosition(motor.currentPosition());
-
-  // Error diagnostics
-  if(motor.trip == true){
-    includeState(osTripped);
-    motor.reset();
-    nexTripAlert();
   }
 }
 
@@ -372,7 +321,7 @@ void prime(){
   displayDispenseVolume = false;
 
   updateErrorTxt("Please Wait");
-  updateStatusTxt(msgPriming);
+  updateStatusTxt0(msgPriming);
 
   totalDispensedVol = 0;
   for (byte i = 0; i < primeCycles; i++){
@@ -385,7 +334,7 @@ void prime(){
   }
   includeState(osPrimed);
   updateErrorTxt(" ");
-  updateStatusTxt(msgReady);
+  updateStatusTxt0(msgReady);
   Serial.println(msgReady);
   nexEnableScreen();
   // Empty Serial input buffer
@@ -538,7 +487,6 @@ void moveDown(){
 }
 
 void stopMove(){
-//  if (debugPrint) Serial.println("Up_down button pop callback");
   motor.running = false;
 }
 
@@ -555,6 +503,10 @@ bool titrateMode(){
   else{
     return false;
   }
+}
+
+void setTitrateRate(bool slowRate){
+  titrateSlowSpeed = slowRate;
 }
 
 void doZeroTitrateTotal(){
@@ -592,13 +544,13 @@ void dispense(){
     return;
   }
   nexDisableScreen();
-  updateStatusTxt(msgDispensing);
+  updateStatusTxt1(msgDispensing);
   Serial.println(msgDispensing);
   motor.highSpeedSettings();
   // start dispense cycle from primed position
   if (motor.currentPosition() != primeSteps) {
     switchValve(vpInlet);
-    updateStatusTxt(msgFilling);
+    updateStatusTxt1(msgFilling);
     safeMoveTo(primeSteps);
   }
   if(containState(osTripped)) return;  // do nothing if tripped
@@ -606,18 +558,18 @@ void dispense(){
   totalDispensedVol = 0;
   for(byte i=0; i<dispenseCycles; i++){
     switchValve(vpOutlet);
-    updateStatusTxt(msgDispensing);
+    updateStatusTxt1(msgDispensing);
     displayDispenseVolume = true;
     safeMoveTo(motor.currentPosition() - dispenseSteps);
     if(containState(osTripped)) return;  // do nothing if tripped
 
     displayDispenseVolume = false;
     switchValve(vpInlet);
-    updateStatusTxt(msgFilling);
+    updateStatusTxt1(msgFilling);
     safeMoveTo(primeSteps);
     if(containState(osTripped)) return;  // do nothing if tripped
   }
-  updateStatusTxt(msgReady);
+  updateStatusTxt1(msgReady);
   Serial.println(msgReady);
   nexEnableScreen();
   // Empty Serial input buffer
@@ -646,6 +598,7 @@ bool doZero(){
 bool isOK;
   excludeState(osZeroed);  // disable screen updates, enable zeroing  on trip
   switchValve(vpOutlet);
+  motor.lowSpeedSettings();
   displayDispenseVolume = false;
   // 1. Move up until trip, set pos = -1 mm
   if(debugPrint) Serial.println("1.Move up...");
@@ -665,8 +618,8 @@ bool isOK;
   // 2. Move 10 mm down without tripping
   if(isOK){
     switchValve(vpInlet);
-    safeMoveTo(5 * stPmm);
-    if(debugPrint) Serial.println("2. Moved down 5 mm.");
+    safeMoveTo(2 * stPmm);
+    if(debugPrint) Serial.println("2. Moved down 2 mm.");
     if(motor.trip) {
       motor.reset();
       isOK = false;
@@ -725,15 +678,19 @@ void setup(){
   // Print CPU0 reset reason on Nextion
   updateErrorTxt(reset_reason());
 
+  // Reset default messages on all screens
+  updateStatusTxt("Press zero to start");
+  updateVolumeTxt("-----");
+
   //if(debugPrint)
-  delay(2000);  // delay startup to allow for serial monitor connection
+//  delay(2000);  // delay startup to allow for serial monitor connection
 
   // Set Nextion variable used to limit user input
   setNexMaxVolLimit(syringeInfo[syringe].vol);
   initNextionInterface();
 
   if(digitalRead(dispenseButton) == LOW){
-    updateStatusTxt("OTA");
+    updateStatusTxt0("OTA");
     runOTA();  // perhaps stop checkZero and only wait for OTA updates...
   }
 
@@ -745,9 +702,6 @@ void setup(){
   loadConfig();
 
   valve.attach(servo); //enable servo
-
-  updateStatusTxt("Press zero to start");
-  updateVolumeTxt("-----");
 
   if(debugPrint) {
     Serial.println("Debug messages on");
@@ -916,7 +870,10 @@ void loop() {
   else if (currentMode == msTitrate){
     if (dosingButtonState == 0){
       displayDispenseVolume = true;
-      // Hack to clear internal state of AccelSteppr
+      if(titrateSlowSpeed) motor.lowSpeedSettings();
+      else motor.highSpeedSettings();
+
+      // Hack to clear internal state of AccelStepper
       motor.setCurrentPosition(motor.currentPosition());
       safeMoveTo(0);
       if (motor.currentPosition() == 0){

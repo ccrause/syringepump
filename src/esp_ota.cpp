@@ -20,17 +20,17 @@ bool startWiFi(void) {
   WiFi.setHostname("update");
   WiFi.config(IPAddress(192,168,4,127), IPAddress(192,168,4,1), IPAddress(255,255,255,0));
   Serial.printf("Connecting to AP %s\n", WIFISSID);
-  updateErrorTxt("Connecting to AP");
+  updateErrorTxt0("Connecting to AP");
   while ((WiFi.status() != WL_CONNECTED)) {
     yield();
     if (switchToX == true) {
       Serial.print("x");
-      updateStatusTxt("OTA x");
+      updateStatusTxt0("OTA x");
       switchToX = false;
     }
     else {
       Serial.print("+");
-      updateStatusTxt("OTA +");
+      updateStatusTxt0("OTA +");
       switchToX = true;
     }
     processNexMessages();
@@ -38,14 +38,14 @@ bool startWiFi(void) {
   }
   if(WiFi.status() == WL_CONNECTED) {
     Serial.printf("WiFi connected, IP: %s\n", WiFi.localIP().toString().c_str());
-    updateErrorTxt(WiFi.localIP().toString().c_str());
+    updateErrorTxt0(WiFi.localIP().toString().c_str());
     char buf[32];
     snprintf(buf, sizeof(buf),"%s.local", WiFi.getHostname());
     return true;
   }
   else {
     Serial.println("Wifi connection failed.");
-    updateErrorTxt("Wifi not connected");
+    updateErrorTxt0("Wifi not connected");
     WiFi.mode(WIFI_MODE_NULL);
     return false;
   }
@@ -71,12 +71,12 @@ void runOTA() {
     delay(waitDelay);
     if (switchToX == true) {
       Serial.print("x");
-      updateStatusTxt("OTA x");
+      updateStatusTxt0("OTA x");
       switchToX = false;
     }
     else {
       Serial.print("+");
-      updateStatusTxt("OTA +");
+      updateStatusTxt0("OTA +");
       switchToX = true;
     }
     processNexMessages();
@@ -105,7 +105,7 @@ void onEnd(void) {
 };
 
 void onError(ota_error_t error) {
-  updateErrorTxt("OTA error");
+  updateErrorTxt0("OTA error");
   Serial.printf("Error[%u]: ", error);
   if (error == OTA_AUTH_ERROR) {
     Serial.println("Auth Failed");
@@ -127,7 +127,7 @@ void onProgress(unsigned int progress, unsigned int total) {
     char buf[10];
     snprintf(buf, sizeof(buf), "%u%%", pctProgress);
     Serial.println(buf);
-    updateErrorTxt(buf);
+    updateErrorTxt0(buf);
     prevPctProgress = pctProgress;
   }
 };

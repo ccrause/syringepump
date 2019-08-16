@@ -143,7 +143,7 @@ void primeButtonReleased(void *ptr){
 void titrateButtonReleased(void *ptr){
   if (debugPrint) Serial.println("titrateButtonReleased");
   if(!titrateMode()){
-    sendCommand("page 0");
+    page0.show();
     recvRetCommandFinished(100);
     errMsgP0.setText("Prime first");
   }
@@ -157,7 +157,7 @@ void titrateButtonReleased(void *ptr){
 void dispenseButtonReleased(void *ptr){
   if (debugPrint) Serial.println("dispenseButtonReleased");
   if(!dispenseMode()){
-    sendCommand("page 0");
+    page0.show();
     recvRetCommandFinished(100);
     errMsgP0.setText("Prime first");
   }
@@ -184,7 +184,9 @@ void emptyButtonReleased(void *prt){
 
 void rateSwitchButtonReleased(void *prt){
   if (debugPrint) Serial.println("rateSwitchButtonReleased");
-  //
+  uint32_t val;
+  rateSwitch.getValue(&val);
+  setTitrateRate((bool)val);
 }
 
 void zeroTotalButtonReleased(void *prt){
@@ -236,7 +238,7 @@ bool checkSettings(void){
 
   float tmpDispenseVol;
   if(getDispenseVolume(&tmpDispenseVol) == false){
-    sendCommand("page 3");
+    page3.show();
     recvRetCommandFinished(100);
     errMsgP3.setText("Error converting");
     return false;
@@ -244,7 +246,7 @@ bool checkSettings(void){
   else{
     if(tmpDispenseVol > 3*syringeInfo[syringe].vol) {
       Serial.println("Set volume exceeded");
-      sendCommand("page 3");
+      page3.show();
       recvRetCommandFinished(100);
       errMsgP3.setText("Set volume exceeded");
       char correctedVol[6];
@@ -285,6 +287,30 @@ void homeButtonP3Released(void *prt_){
 // Interface to display elements
 void updateStatusTxt(const char status[]){
   statusTextP0.setText(status);
+  statusTextP1.setText(status);
+  statusTextP2.setText(status);
+  statusTextP3.setText(status);
+  statusTextP4.setText(status);
+}
+
+void updateStatusTxt0(const char status[]){
+  statusTextP0.setText(status);
+}
+
+void updateStatusTxt1(const char status[]){
+  statusTextP1.setText(status);
+}
+
+void updateStatusTxt2(const char status[]){
+  statusTextP2.setText(status);
+}
+
+void updateStatusTxt3(const char status[]){
+  statusTextP3.setText(status);
+}
+
+void updateStatusTxt4(const char status[]){
+  statusTextP4.setText(status);
 }
 
 void updateErrorTxt(const char err[]){
@@ -334,18 +360,6 @@ void updateVolumeTxt4(const char txt[]){
   volumeTextP4.setText(txt);
 }
 
-void updateVolumeTxt2NoAck(float vol){
-  const char sendCmdTxt[] = "page2.t1.txt=\"%.3f\"\xff\xff\xff";
-  sprintf(buffer, sendCmdTxt, vol);
-  nexSerial.write(buffer);
-}
-
-void updateVolumeTxt4NoAck(float vol){
-  const char sendCmdTxt[] = "page4.t1.txt=\"%.3f\"\xff\xff\xff";
-  sprintf(buffer, sendCmdTxt, vol);
-  nexSerial.write(buffer);
-}
-
 void updateValveDisplay(uint8_t pos){
   valvePositionP0.setValue(pos);
   valvePositionP1.setValue(pos);
@@ -365,23 +379,9 @@ void updateProgressbarDispense(uint32_t pos){
 void updateProgressbarTitrate(uint32_t pos){
   progressBarP2.setValue(pos);
 }
-// Send command but do not read response
-// This leaves Nextion response in serial buffer
-// This response will then be removed by nexLoop without interfering with the nexLoop logic.
-void updateProgressbarTitrateNoAck(uint32_t pos){
-  const char sendCmdVal[] = "page2.j0.val=%d\xff\xff\xff";
-  sprintf(buffer, sendCmdVal, pos);
-  nexSerial.write(buffer);
-}
 
 void updateProgressbarManual(uint32_t pos){
   progressBarP4.setValue(pos);
-}
-
-void updateProgressbarManualNoAck(uint32_t pos){
-  const char sendCmdVal[] = "page4.j0.val=%d\xff\xff\xff";
-  sprintf(buffer, sendCmdVal, pos);
-  nexSerial.write(buffer);
 }
 
 void updateSettingsDisplay(float tmpDispenseVol, uint32_t tmpPrimeVol, uint32_t tmpPrimeCycles,
@@ -435,7 +435,7 @@ void initNextionInterface(){
 
 void nexTripAlert(){
   Serial.println(tripMessage);
-  sendCommand("page 5"); // page3.show() doesn't work??
+  tripPage.show();
 }
 
 void nexReset(){
