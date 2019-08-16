@@ -170,7 +170,6 @@ void safeMoveTo(long newpos){
     Serial.printf("curPos: %ld\ntargetPos: %ld\nspeed: %0.2f\n",
                   motor.currentPosition(), motor.targetPosition(), motor.speed());
   }
-  motor.moveToPosition = true;
   motor.running = true;
 
   // only zero if in dispense mode
@@ -740,7 +739,7 @@ void processSerial(){
       Serial.println("z : Zero");
     }
     else if(c == '/'){
-      if(motor.running && !motor.moveToPosition){
+      if(motor.running){
         stopMove();
       }
       else{

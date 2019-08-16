@@ -85,12 +85,8 @@ void runMotor(void *P){
   motor.trip = false;
   while(true){
     if(motor.running && (motor.trip == false)){
-      if(motor.moveToPosition){
-        while (motor.run() && (motor.trip == false) && motor.running) {}
+      if(!motor.run()){
         motor.running = false;
-      }
-      else {
-        motor.runSpeed();
       }
     }
     else
