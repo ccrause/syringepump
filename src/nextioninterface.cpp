@@ -18,11 +18,11 @@ NexText errMsgP0(0, 2, "t1");        // Error Display 50 Characters max, 5 lines
 NexText volumeTextP0(0, 3, "t2");     // Current Syringe Volume
 NexProgressBar progressBarP0(0, 4, "j0"); //Syringe Slider 0=100% Full
 NexDSButton valvePositionP0(0, 5, "bt0"); // Actual Valve Position 0=IN 1=Out
-NexButton zeroButton(0, 6, "b0");   // Start zeroing of plunger
-NexButton settingsButtonP0(0, 7, "b1"); //Page1 not used in mcu
-NexButton primeButton(0, 8, "b2");  //Prime Syringe
-NexButton titrateButton(0, 9, "b3");  // Empty Syringe
-NexButton dispenseButton(0, 10, "b4");  // Empty Syringe
+NexDSButton zeroButton(0, 6, "bt1");   // Start zeroing of plunger
+NexDSButton settingsButtonP0(0, 7, "bt2"); //Page1 not used in mcu
+NexDSButton primeButton(0, 8, "bt3");  //Prime Syringe
+NexDSButton titrateButton(0, 9, "bt4");  // Empty Syringe
+NexDSButton dispenseButton(0, 10, "bt5");  // Empty Syringe
 
 // Page 1 Dispense
 NexText statusTextP1(1, 1, "t0");     // Status Text Ready, Running, Filling. Error
@@ -47,13 +47,13 @@ NexDSButton rateSwitch(2, 8, "bt1");      // High/low speed for titration
 NexText statusTextP3(3, 1, "t0");    // Status Text Ready, Running, Filling. Error
 NexText errMsgP3(3, 2, "t1");        // Error Display 28 Carracters max
 NexButton homeButtonP3(3, 3, "b0");  // Home Page button update the values for the syringe by reading the vairious values
-NexButton manualButtonP3(3, 4, "b1");
-NexText dispenseVolumeText(3, 5, "t2"); //Set Volume
-NexNumber primeVolumeNumber(3, 6, "n0"); //global vairable to limit stkokeNumber must be updated on startup
-NexNumber primeCyclesNumber(3, 7, "n1"); //Number of cycles to prime
-NexNumber highSpeedNumber(3, 8, "n2");   // % of max speed
-NexNumber lowSpeedNumber(3, 9, "n3"); // % of max speed
-NexNumber nexMaxVolLimit(3, 10, "va0"); //global variable to limit stkokeNumber must be updated on startup
+NexText dispenseVolumeText(3, 4, "t2"); //Set Volume
+NexNumber primeVolumeNumber(3, 5, "n0"); //global vairable to limit stkokeNumber must be updated on startup
+NexNumber primeCyclesNumber(3, 6, "n1"); //Number of cycles to prime
+NexNumber highSpeedNumber(3, 7, "n2");   // % of max speed
+NexNumber lowSpeedNumber(3, 8, "n3"); // % of max speed
+NexNumber nexMaxVolLimit(3, 9, "va0"); //global variable to limit stkokeNumber must be updated on startup
+NexDSButton manualButtonP3(3, 11, "bt1"); //Go to manual page ds button
 
 // Page 4 Manual
 NexText statusTextP4(4, 1, "t0");     // Status Text Ready, Running, Filling. Error
