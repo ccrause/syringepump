@@ -50,6 +50,9 @@ public: /* methods */
      */
     void printObjInfo(void);
 
+    void enable();
+    void disable();
+
 protected: /* methods */
 
     /*

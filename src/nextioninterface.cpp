@@ -5,12 +5,12 @@
 
 #include <errno.h>
 
-NexPage page0(0, 0, "page0");       // Startup / home Screen
-NexPage page1(1, 0, "page1");       // Dispense screen
-NexPage page2(2, 0, "page2");       // Titrate creen
-NexPage page3(3, 0, "page3");       // Settings screen
-NexPage page4(4, 0, "page4");       // Titrate creen
-NexPage tripPage(5, 0, "page5");    // Stall / Tripp and reset Screen
+NexPage homePage(0, 0, "page0");
+NexPage dispensePage(1, 0, "page1");
+NexPage titratePage(2, 0, "page2");
+NexPage settingsPage(3, 0, "page3");
+NexPage manualPage(4, 0, "page4");
+NexPage tripPage(5, 0, "page5");
 
 // Page 0 (Home)
 NexText statusTextP0(0, 1, "t0");     // Status Text Ready, Running, Filling. Error
@@ -22,7 +22,7 @@ NexDSButton zeroButton(0, 6, "bt1");   // Start zeroing of plunger
 NexDSButton settingsButtonP0(0, 7, "bt2"); //Page1 not used in mcu
 NexDSButton primeButton(0, 8, "bt3");  //Prime Syringe
 NexDSButton titrateButton(0, 9, "bt4");  // Empty Syringe
-NexDSButton dispenseButton(0, 10, "bt5");  // Empty Syringe
+NexDSButton dispenseScreenButton(0, 10, "bt5");  // Empty Syringe
 
 // Page 1 Dispense
 NexText statusTextP1(1, 1, "t0");     // Status Text Ready, Running, Filling. Error
@@ -78,7 +78,7 @@ NexTouch *nex_listen_list[] = {
   &settingsButtonP0,
   &primeButton,
   &titrateButton,
-  &dispenseButton,
+  &dispenseScreenButton,
 
   // Page 1
   &homeButtonP1,
@@ -121,51 +121,63 @@ void processNexMessages(){
 
 void zeroButtonReleased(void *ptr){
   if (debugPrint) Serial.println("zeroButtonPressed");
+
   errMsgP0.setText("Calibrating zero offset of syringe");
   statusTextP0.setText("Zeroing");
   if(doZero()){
     errMsgP0.setText("Prime syringe before selecting\n titrate or dispense");
     statusTextP0.setText("Zero OK");
   }
+  zeroButton.setValue(0);
   // If doZero fails it will set states and display trip alert
 }
 
 void settingsButtonReleased(void *ptr) {
   if (debugPrint) Serial.println("settingsButtonReleased");
   settingMode();
+  settingsButtonP0.setValue(0);
+  settingsPage.show();
 }
 
 void primeButtonReleased(void *ptr){
   if (debugPrint) Serial.println("primeButtonReleased");
   prime();
+  primeButton.setValue(0);
 }
 
 void titrateButtonReleased(void *ptr){
   if (debugPrint) Serial.println("titrateButtonReleased");
+
   if(!titrateMode()){
-    page0.show();
+    homePage.show();
     recvRetCommandFinished(100);
     errMsgP0.setText("Prime first");
   }
   else{
+    titratePage.show();
+    rateSwitch.setValue(0);
+    setTitrateRate(false);
     progressBarP2.setValue((uint32_t)currentPlungerPosition);
     dtostrf(currentSyringeVolume, 5, 3, buffer);
     volumeTextP2.setText(buffer);
   }
+  titrateButton.setValue(0);
 }
 
 void dispenseButtonReleased(void *ptr){
   if (debugPrint) Serial.println("dispenseButtonReleased");
   if(!dispenseMode()){
-    page0.show();
+    homePage.show();
     recvRetCommandFinished(100);
     errMsgP0.setText("Prime first");
   }
   else{
+    dispensePage.show();
     progressBarP1.setValue((uint32_t)currentPlungerPosition);
     dtostrf(currentSyringeVolume, 5, 3, buffer);
     volumeTextP1.setText(buffer);
   }
+  dispenseScreenButton.setValue(0);
 }
 
 void homeButtonReleased(void *ptr){
@@ -205,7 +217,7 @@ void downButtonPushed(void *prt){
 }
 
 void up_downButtonReleased(void *prt){
-  /*if (debugPrint)*/ Serial.println("up_downButtonReleased");
+  if (debugPrint) Serial.println("up_downButtonReleased");
   stopMove();
 }
 
@@ -238,7 +250,7 @@ bool checkSettings(void){
 
   float tmpDispenseVol;
   if(getDispenseVolume(&tmpDispenseVol) == false){
-    page3.show();
+    settingsPage.show();
     recvRetCommandFinished(100);
     errMsgP3.setText("Error converting");
     return false;
@@ -246,7 +258,7 @@ bool checkSettings(void){
   else{
     if(tmpDispenseVol > 3*syringeInfo[syringe].vol) {
       Serial.println("Set volume exceeded");
-      page3.show();
+      settingsPage.show();
       recvRetCommandFinished(100);
       errMsgP3.setText("Set volume exceeded");
       char correctedVol[6];
@@ -267,6 +279,8 @@ bool checkSettings(void){
 void manualButtonReleased(void *ptr) {
   if (debugPrint) Serial.println("manualButtonReleased");
   manualMode();
+  manualPage.show();
+  manualButtonP3.setValue(0);
   progressBarP4.setValue((uint32_t)currentPlungerPosition);
   dtostrf(currentSyringeVolume, 5, 3, buffer);
   volumeTextP4.setText(buffer);
@@ -404,7 +418,7 @@ void initNextionInterface(){
   settingsButtonP0.attachPop(settingsButtonReleased);
   primeButton.attachPop(primeButtonReleased);
   titrateButton.attachPop(titrateButtonReleased);
-  dispenseButton.attachPop(dispenseButtonReleased);
+  dispenseScreenButton.attachPop(dispenseButtonReleased);
 
   // Page 1
   homeButtonP1.attachPop(homeButtonReleased);
@@ -523,10 +537,40 @@ uint32_t getPrimeCycles(void) {
 
 void nexDisableScreen(){
   sendCommand("tsw 255,0");
-  recvRetCommandFinished();
+//  recvRetCommandFinished();
 }
 
 void nexEnableScreen(){
   sendCommand("tsw 255,1");
-  recvRetCommandFinished();
+//  recvRetCommandFinished();
+}
+
+void nexDisablePrime(){
+  primeButton.disable();
+  primeButton.setValue(1);
+}
+
+void nexDisableTitrate(){
+  titrateButton.disable(); // show as pressed in
+  titrateButton.setValue(1);
+}
+
+void nexDisableDispense(){
+  dispenseScreenButton.disable();
+  dispenseScreenButton.setValue(1);
+}
+
+void nexEnablePrime(){
+  primeButton.enable();
+  primeButton.setValue(0);
+}
+
+void nexEnableTitrate(){
+  titrateButton.enable();
+  titrateButton.setValue(0);
+}
+
+void nexEnableDispense(){
+  dispenseScreenButton.enable();
+  dispenseScreenButton.setValue(0);
 }

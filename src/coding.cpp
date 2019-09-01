@@ -339,6 +339,9 @@ void prime(){
   updateErrorTxt(" ");
   updateStatusTxt0(msgReady);
   Serial.println(msgReady);
+  nexEnableDispense();
+  nexEnableTitrate();
+
   nexEnableScreen();
   // Empty Serial input buffer
   while(Serial.available()) Serial.read();
@@ -550,6 +553,7 @@ void dispense(){
   updateStatusTxt1(msgDispensing);
   Serial.println(msgDispensing);
   motor.highSpeedSettings();
+  motor.setCurrentPosition(motor.currentPosition());
   // start dispense cycle from primed position
   if (motor.currentPosition() != primeSteps) {
     switchValve(vpInlet);
@@ -662,6 +666,7 @@ bool isOK;
 
   if(isOK){
     includeState(osZeroed);
+    nexEnablePrime();
   }
   else{
     motor.reset();
@@ -696,6 +701,10 @@ void setup(){
     updateStatusTxt0("OTA");
     runOTA();  // perhaps stop checkZero and only wait for OTA updates...
   }
+
+  nexDisableDispense();
+  nexDisablePrime();
+  nexDisableTitrate();
 
   if(debugPrint) Serial.printf("Setup executing on core # %d\n", xPortGetCoreID());
 

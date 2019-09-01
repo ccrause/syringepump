@@ -45,4 +45,11 @@ void nexReset();
 void nexDisableScreen();
 void nexEnableScreen();
 
+void nexDisablePrime();
+void nexDisableTitrate();
+void nexDisableDispense();
+void nexEnablePrime();
+void nexEnableTitrate();
+void nexEnableDispense();
+
 #endif // _NEXTIONINTERFACE_

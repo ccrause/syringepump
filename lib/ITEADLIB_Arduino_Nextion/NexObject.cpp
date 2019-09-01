@@ -13,6 +13,7 @@
  * the License, or (at your option) any later version.
  */
 #include "NexObject.h"
+#include "NexHardware.h"
 
 NexObject::NexObject(uint8_t pid, uint8_t cid, const char *name)
 {
@@ -66,4 +67,24 @@ void NexObject::printObjInfo(void)
     dbSerialPrintln("]");
     dbSerialPrint("Full component reference: ");
     dbSerialPrintln(__ref.c_str());
+}
+
+void NexObject::enable(){
+  String s;
+  s = "tsw ";
+  s += this->__cid;
+  s += ",";
+  s += "1";
+  sendCommand(s.c_str());
+  recvRetCommandFinished();
+}
+
+void NexObject::disable(){
+  String s;
+  s = "tsw ";
+  s += this->__cid;
+  s += ",";
+  s += "0";
+  sendCommand(s.c_str());
+  recvRetCommandFinished();
 }
