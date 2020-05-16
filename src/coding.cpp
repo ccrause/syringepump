@@ -178,7 +178,7 @@ void safeMoveTo(long newpos){
   if(currentMode == msDispense) deltaVol = 0;
 
   if(debugTMC){
-    Serial.printf("SGT = %d, Accel = %d\n", driver.sgt(), motor.getAcceleration());
+    Serial.printf("SGT = %d, Accel = %.2f\n", driver.sgt(), motor.getAcceleration());
     Serial.println("SG    | Current|  Speed |  TSTEP");
   }
 
@@ -194,6 +194,7 @@ void safeMoveTo(long newpos){
     }
     else if (currentMode == msManual){
       processNexMessages();  // wait for button release event
+      processSerial();  // read Serial for possible stop instruction
     }
 
 //    if(debugPrint) Serial.printf("curPos: %ld\ntargetPos: %ld\nspeed: %0.2f\n",
@@ -753,17 +754,19 @@ void processSerial(){
       Serial.println("z : Zero");
     }
     else if(c == '/'){
-      if(motor.running){
+      if(motor.running && (currentMode == msManual)){
         stopMove();
       }
       else{
         Serial.println("Motor not in free running mode");
       }
     }
-    else if(c == '+'){
+    else if(c == '+'  && (!motor.running)){
+      manualMode();
       moveUp();
     }
-    else if(c == '-'){
+    else if(c == '-'  && (!motor.running)){
+      manualMode();
       moveDown();
     }
     else if(c == '0'){
