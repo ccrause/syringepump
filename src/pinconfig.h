@@ -16,8 +16,7 @@
 #define encoderPin 36 // screw encoder
 
 // Quadrature encoder pins
-#define encoderPinA 18
-#define encoderPinB 19
-
+#define encoderPinA 18  // Green
+#define encoderPinB 19  // White
 
 #endif // __PINCONFIG_H__
