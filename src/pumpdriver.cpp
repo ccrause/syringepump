@@ -14,14 +14,16 @@ TMC2130Stepper driver(TMC_CS);
 //int32_t speed;    // Actual speed in mm/sec
 
 // Approximate pulse width in stepper pulses of the encoder
-#define maxPulseCount 220 // 800*8 / (20*2) * 1.1
+#define maxPulseCount 200 // 800*8 / (20*2) * 1.1
 portMUX_TYPE counterMux = portMUX_INITIALIZER_UNLOCKED;
 
 boolean myAccelStepper::runSpeed(){
   if (AccelStepper::runSpeed()) {
     portENTER_CRITICAL_ISR(&counterMux);
-    uint16_t temp = stepper_count++;
+    stepper_count = stepper_count + 2;  // stepper pulse : encoder pulse 8 : 3
+    uint16_t temp = stepper_count;
     portEXIT_CRITICAL_ISR(&counterMux);
+
     if (temp > maxPulseCount){
       trip = true;
       Serial.println("#");
@@ -43,7 +45,7 @@ float myAccelStepper::getAcceleration(){
 }
 
 void myAccelStepper::lowSpeedSettings(){
-  AccelStepper::setMaxSpeed(lowSpeed_mm_s * stPmm);
+  AccelStepper::setMaxSpeed(lowSpeed_mm_s * stPmm);  // DEBUG
   AccelStepper::setAcceleration(accelRamp);
   driver.sgt(this->lSG);
   driver.rms_current(syringeInfo[syringe].lowSpeedCurrent);
@@ -56,9 +58,44 @@ void myAccelStepper::highSpeedSettings(){
   driver.rms_current(syringeInfo[syringe].highSpeedCurrent);
 }
 
-void IRAM_ATTR encoderPulse() {
+//void IRAM_ATTR encoderPulse() {
+//  portENTER_CRITICAL_ISR(&counterMux);
+//  motor.stepper_count = 0;
+//  portEXIT_CRITICAL_ISR(&counterMux);
+//}
+
+void IRAM_ATTR encoderPulseA() {
+  // 00 -> 01 -> 11 -> 10 -> 00 State transition if going up
+  // 00 <- 01 <- 11 <- 10 <- 00 State transition if going down
+  //                     Current State  =  0, 1, 2, 3
+  static const uint8_t prevStateUp[4]   = {2, 0, 3, 1};
+  static const uint8_t prevStateDown[4] = {1, 3, 0, 2};
+  static uint32_t prevState = 0;
+  uint8_t pinState = ((gpio_get_level((gpio_num_t)encoderPinB) << 1) | gpio_get_level((gpio_num_t)encoderPinA)) & 3;
+
+  bool goingInRightDirection = false;
+
+  if (motor.dir > 0) {
+    if (prevStateUp[pinState] == prevState) {
+      goingInRightDirection = true;
+    }
+  }
+  else if (motor.dir < 0) {
+    if (prevStateDown[pinState] == prevState) {
+      goingInRightDirection = true;
+    }
+  }
+  prevState = pinState;
+
   portENTER_CRITICAL_ISR(&counterMux);
-  motor.stepper_count = 0;
+  if (goingInRightDirection) {
+    if (motor.stepper_count > 8) {
+      motor.stepper_count -= 8;
+    };
+  }
+  else {  // If in reverse direction or just noise, increase count so that trip is approached sooner.  Note that a single glitsch will not necessarily trip.
+    motor.stepper_count += 2;
+  }
   portEXIT_CRITICAL_ISR(&counterMux);
 }
 
@@ -66,18 +103,19 @@ extern bool debugPrint;
 
 void IRAM_ATTR stallHandler() {
   motor.trip = true;
-  //if (debugTMC){
+  if (debugTMC){
     Serial.println("STALL");
     // Send serial data before exiting interrupt
     delayMicroseconds(1000);
-  //}
+  }
 }
 
 // runMotor task is thin for high frequency stepping
 // User output should be done in a separate task
 void runMotor(void *P){
   // Create motor stall clear interrupt
-  attachInterrupt(digitalPinToInterrupt(encoderPin), encoderPulse, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(encoderPinA), encoderPulseA, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(encoderPinB), encoderPulseA, CHANGE);
   attachInterrupt(digitalPinToInterrupt(stallPin), stallHandler, RISING);
 
   // Unsubscribe from TWDT so that long moves doesn't time-out
@@ -101,6 +139,8 @@ void initStepperRunner(){
   pinMode(TMC_VIO, OUTPUT);
   pinMode(stallPin, INPUT_PULLDOWN);
   pinMode(encoderPin, INPUT);
+  pinMode(encoderPinA, INPUT_PULLUP);
+  pinMode(encoderPinB, INPUT_PULLUP);
   digitalWrite(motorEnablePin, LOW);
   digitalWrite(TMC_VIO, HIGH);
 
@@ -116,20 +156,22 @@ void initStepperRunner(){
   driver.pwm_grad(8);
   driver.toff(4);
   driver.blank_time(24);
-  driver.rms_current(400); // 400mA
+  driver.TCOOLTHRS(0); // 20bit max, disable stallGuard at low velocity
+  driver.THIGH(0);
+  driver.TPWMTHRS(0);  // stealthChop mode only
+
+  driver.rms_current(600); // 400mA
   driver.microsteps(16);
   driver.intpol(true);
-  driver.TCOOLTHRS(2000); // 20bit max, disable stallGuard at low velocity
-  driver.THIGH(0);
 
   // Current control, 5.5.3, p. 36
-  driver.sfilt(true);           // Filter SG readout
+  driver.sfilt(false);           // Filter SG readout
   driver.sgt(motor.lSG);        // Stall sensitivity: more positive -> less sensitive
-  driver.seimin(0);             // 0=1/4, 1=1/2 of current setting
+  driver.seimin(0);             // 0=1/2, 1=1/4 of current setting
   driver.sedn(1);               // Current down step speed (0 = 32 SG values before down)
-  driver.semax(1); //4             // Decrease current if SG value above (semin+semax)*32
+  driver.semax(5); //4             // Decrease current if SG value above (semin+semax)*32
   driver.seup(3);               // Current increment steps
-  driver.semin(10);             // Increase current if SG value below semin*32
+  driver.semin(15);             // Increase current if SG value below semin*32
 
   driver.diag1_stall(true);
   driver.diag1_pushpull(true);

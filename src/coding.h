@@ -4,6 +4,7 @@
 #include "syringelist.h"
 
 extern syringeType syringe;
+extern bool debugTMC;
 
 bool doZero();
 void resetAll();

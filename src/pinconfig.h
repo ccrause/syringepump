@@ -15,4 +15,9 @@
 #define servo 13 // servo signal
 #define encoderPin 36 // screw encoder
 
+// Quadrature encoder pins
+#define encoderPinA 18
+#define encoderPinB 19
+
+
 #endif // __PINCONFIG_H__

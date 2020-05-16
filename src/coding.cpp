@@ -149,7 +149,6 @@ uint16_t rms_current(uint8_t CS) {
   return (float)(CS+1)/32.0 * (0.180)/(R_SENSE+0.02) / 1.41421 * 1000;
 }
 
-
 void safeMoveTo(long newpos){
   // limit max travel to maximum allowed syringe stroke length
   if(newpos > strokeLimitSteps){
@@ -157,7 +156,9 @@ void safeMoveTo(long newpos){
   }
 
   // Reset trip counter to prevent spurious trip when reversing direction
-  motor.stepper_count = 0;
+  motor.stepper_count = 100;
+  // Set direction so encoder can catch backlash or vibration
+  (motor.currentPosition() > newpos) ? motor.dir = 1 : motor.dir = -1;
 
   if(debugPrint){
     Serial.println("Before moveTo:");

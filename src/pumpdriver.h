@@ -30,6 +30,7 @@ public:
   volatile bool running;
   volatile bool moveToPosition;
   volatile bool trip;
+  int32_t dir;  // 0 = init, 1 = up, -1 = down
   int lSG;  // low speed stallGuard setting
   int hSG;  // high speed stallGuard setting
 };
